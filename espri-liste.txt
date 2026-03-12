@@ -1,0 +1,57 @@
+Neden bisikletler kendi başlarına ayakta duramaz? Çünkü iki tekerleklidirler!
+Bir balık duvara çarpmış, "Dam!" demiş.
+Matematik kitabı neden üzgün? Çünkü çok fazla problemi var!
+Karanlıktan korkan ampul ne yapar? Işığı açar!
+Bir programcı neden gözlük takar? Çünkü C# göremez!
+İki anten evlendi. Düğün sıkıcıydı ama resepsiyon muhteşemdi!
+Neden bazı insanlar matematiği sever? Çünkü onların problemleri var!
+Bir foton otele giriyor. Resepsiyonist soruyor: "Bagajınız var mı?" Foton: "Hayır, ışık hızında seyahat ediyorum."
+Neden deniz suyu tuzludur? Çünkü balıklar selamlaşırken "Tuzla!" derler.
+Bir fizikçi bara girmiş: "Bir bira lütfen, ve enerjimi koruyun!"
+JavaScript ile C++ kavga etmişler. JavaScript: "Sen çok karmaşıksın!" C++: "En azından benim tipim var!"
+Bir robot doktora gitmiş. Doktor: "Neyin var?" Robot: "Biraz paslandım galiba."
+Python'a neden yılan denir? Çünkü kodlar süzülür!
+Neden yazılımcılar asla dışarı çıkmaz? Çünkü evde de bug'lar var!
+Yapay zeka neden depresyona girmez? Çünkü sürekli öğreniyor ve gelişiyor!
+İki yapay zeka konuşuyormuş. Biri: "İnsan olsaydım ne yapardım?" Diğeri: "Muhtemelen kahve içerdin."
+Bir astronot uzayda nasıl kahve içer? Uzay bardağıyla!
+Kara delik bara girmiş. Barmen: "Ne alırsınız?" Kara delik: "Her şeyi!"
+Neden Ay'da restoran açmadılar? Çünkü atmosfer yoktu!
+Güneş ile Dünya kavga etmişler. Dünya: "Sen çok parlaksın!" Güneş: "Sen de dönüyorsun!"
+Elektron bara girmiş. Barmen: "Pozitif misin negatif mi?" Elektron: "Emin değilim, süperpozisyondayım!"
+Bir kuantum fizikçisi kedisini kaybetmiş. Hem ölü hem diri olabilir!
+Newton ile Einstein satranç oynamışlar. Einstein görecelikten kazanmış!
+Matematik neden en zeki ders? Çünkü her şeyi hesaplar!
+Bir istatistikçi nehre düşmüş. "Ortalama derinlik az" demiş.
+Discord bot'u neden üzgün? Çünkü kimse ping atmıyor!
+Bir sunucu diğerine: "Bugün çok yorgunum, çok fazla request aldım."
+API neden terapi'ye gitti? Çok fazla endpoint'i vardı!
+Database neden yalnız? Çünkü herkes ona query atıp gidiyor!
+Bir bug'ın hayat hikayesi: Doğdum, yaşandım, patch'lendim.
+Neden kediler klavyeye basar? Mouse'u yakalamaları için!
+Bir programcı karısına: "Seni seven bir döngü yazdım, sonsuz döngü!"
+Compiler hata verdi: "Sevgi bulunamadı. Yeniden derleniyor..."
+Bir hacker'ın favorisi şarkı: "Firewall'ın Arkasında"
+Git merge conflict çıkmış. İki branch kavga ediyor!
+Neden gökyüzü mavi? Çünkü yeşil olsaydı nerede duracağımızı bilemezdik!
+Bir fotoğrafçı günbatımına: "Biraz daha bekle, ISO ayarlıyorum!"
+Ressam ile mühendis tartışmış. Mühendis: "Çizgilerini ölç!" Ressam: "İlhamımı ölçemezsin!"
+Müzisyen neden metronom kullanır? Tempo tutmak zaman ister!
+Bir şef yemeği yakmış. Yangın söndürücü: "Sonunda bana ihtiyaç duydun!"
+Neden bilgisayarlar soğuk olmaz? Çünkü Windows'ları var!
+Bir tablet telefona: "Sen neden bu kadar küçüksün?" Telefon: "Cepte taşınmak kolay!"
+İnternet neden hiç yalnız kalmaz? Çünkü bağlantısı var!
+WiFi şifresi neden karmaşık? Çünkü güvenlik her şeyden önemli!
+Bir emoji diğerine: "Bugün nasıl hissediyorsun?" 😊: "Sarı sarı!"
+Cursor neden yorgun? Çünkü bütün gün tıklanıyor!
+RAM'e ne oldu? İşletim sistemi onu yedi!
+SSD ile HDD tartışmış. SSD: "Ben daha hızlıyım!" HDD: "Ama ben daha ucuzum!"
+Bir pixel diğerine: "Biz birlikte güzel bir resim yapıyoruz!"
+Monitor neden gözlük takmaz? Çünkü zaten her şeyi görüyor!
+Bir e-mail spam klasöründe: "Burası harika, kimse rahatsız etmiyor!"
+Caps Lock neden bağırıyor? ÇÜNKÜ AÇIK!
+Bir tablo diğerine: "Senin satırların güzellerin var!" 
+JSON ile XML kavga etmiş. JSON: "Ben daha hafifim!" XML: "Ben daha açıklayıcıyım!"
+Bir log dosyası: "Bugün 10.000 satır yazdım, kimse okumadı..."
+Code review'da: "Bu kod güzel ama neden var?"
+Merge request reddedilmiş: "Çok yaratıcı, anlamadık."

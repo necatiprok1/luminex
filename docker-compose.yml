@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  luminex-bot:
+    build: .
+    container_name: luminex-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./croxydb:/usr/src/app/croxydb # Veritabanı dosyalarının kalıcı olması için (varsa)
+      - ./data:/usr/src/app/data # Data klasörünün kalıcı olması için
