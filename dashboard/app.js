@@ -1,10 +1,12 @@
 const express = require('express');
 const app = express();
 const path = require('path');
-const { ChannelType } = require('discord.js');
 const mongoose = require('mongoose');
 const { Conversation, Activity } = require('../models/GuildMemory'); // Analytics Model
 const db = require('croxydb');
+const os = require('os');
+const moment = require('moment');
+require('moment-duration-format');
 
 module.exports = (client) => {
     const port = process.env.PORT || 3000;
@@ -25,6 +27,16 @@ module.exports = (client) => {
             const users = client.guilds.cache.reduce((a, b) => a + b.memberCount, 0);
             const channels = client.guilds.cache.reduce((a, b) => a + b.channels.cache.size, 0);
 
+            // Sistem Bilgileri
+            const systemInfo = {
+                uptime: moment.duration(process.uptime() * 1000).format("d [gün], h [saat], m [dakika]"),
+                memory: (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + ' MB',
+                nodeVersion: process.version,
+                platform: os.platform(),
+                cpuCount: os.cpus().length,
+                botStatus: client.presence.status
+            };
+
             // AI Analiz İstatistikleri (MongoDB'den)
             let aiMsgCount = 0;
             if (mongoose.connection.readyState === 1) {
@@ -33,11 +45,12 @@ module.exports = (client) => {
 
             res.render('index', {
                 bot: client.user,
-                stats: { servers, users, channels, aiMsgCount }
+                stats: { servers, users, channels, aiMsgCount },
+                system: systemInfo
             });
         } catch (error) {
             console.error("Dashboard Error (Home):", error);
-            res.send("Dashboard yüklenirken hata oluştu.");
+            res.status(500).send("Dashboard yüklenirken hata oluştu.");
         }
     });
 
@@ -65,7 +78,13 @@ module.exports = (client) => {
         // Mevcut croxydb ayarlarını okuma
         const kufurEngel = db.fetch(`kufurengel_${guild.id}`) ? true : false;
         const reklamEngel = db.fetch(`reklamengel_${guild.id}`) ? true : false;
-        const otorol = db.fetch(`otorol_${guild.id}`);
+        const otorolId = db.fetch(`otorol_${guild.id}`);
+        const hosgeldinKanalId = db.fetch(`hosgeldinkanal_${guild.id}`);
+        const aiMod = db.fetch(`aimod_${guild.id}`) !== false; // Varsayılan açık
+
+        // Sunucu Rolleri ve Kanalları
+        const roles = guild.roles.cache.filter(r => r.name !== '@everyone').map(r => ({ id: r.id, name: r.name }));
+        const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText).map(c => ({ id: c.id, name: c.name }));
 
         // Veritabanından Analitik Veri (MongoDB Activity)
         let topChannels = [];
@@ -79,7 +98,9 @@ module.exports = (client) => {
         res.render('server-detail', {
             bot: client.user,
             guild,
-            settings: { kufurEngel, reklamEngel, otorol },
+            settings: { kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, aiMod },
+            roles,
+            textChannels,
             topChannels
         });
     });
@@ -102,6 +123,27 @@ module.exports = (client) => {
             db.set(`reklamengel_${guildId}`, true);
         } else {
             db.delete(`reklamengel_${guildId}`);
+        }
+
+        // AI Mod Güncelleme
+        if (req.body.aiMod === 'on') {
+            db.set(`aimod_${guildId}`, true);
+        } else {
+            db.set(`aimod_${guildId}`, false);
+        }
+
+        // Otorol Güncelleme
+        if (req.body.otorol && req.body.otorol !== 'none') {
+            db.set(`otorol_${guildId}`, req.body.otorol);
+        } else {
+            db.delete(`otorol_${guildId}`);
+        }
+
+        // Hoşgeldin Kanalı Güncelleme
+        if (req.body.welcomeChannel && req.body.welcomeChannel !== 'none') {
+            db.set(`hosgeldinkanal_${guildId}`, req.body.welcomeChannel);
+        } else {
+            db.delete(`hosgeldinkanal_${guildId}`);
         }
 
         // Başarılı döngü

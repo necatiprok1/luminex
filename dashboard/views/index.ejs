@@ -1,67 +1,104 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= bot.username %> | Dashboard</title>
+    <title>
+        <%= bot.username %> | Dashboard
+    </title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
-    <div class="glass-container">
-        <nav>
-            <div class="logo">
-                <img src="<%= bot.displayAvatarURL() %>" alt="Bot Logo">
-                <span><%= bot.username %></span>
-            </div>
-            <ul>
-                <li><a href="/" class="active"><i class="fas fa-home"></i> Ana Sayfa</a></li>
-                <li><a href="/servers"><i class="fas fa-server"></i> Sunucular</a></li>
-                <li><a href="https://discord.gg/luminex" target="_blank"><i class="fab fa-discord"></i> Destek</a></li>
-            </ul>
-        </nav>
-
-        <header>
-            <h1>Yapay Zeka Destekli Yönetim Paneli</h1>
-            <p>Luminex ile sunucunuzu geleceğin teknolojisiyle yönetin.</p>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <i class="fas fa-server"></i>
-                <div class="stat-info">
-                    <h3><%= stats.servers %></h3>
-                    <p>Sunucu</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <i class="fas fa-users"></i>
-                <div class="stat-info">
-                    <h3><%= stats.users %></h3>
-                    <p>Kullanıcı</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <i class="fas fa-robot"></i>
-                <div class="stat-info">
-                    <h3><%= stats.aiMsgCount %></h3>
-                    <p>AI Etkileşimi</p>
-                </div>
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <img src="<%= bot.displayAvatarURL() %>" alt="Luminex">
+            <span>Luminex</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="/" class="active"><i class="fas fa-th-large"></i> <span>Genel Bakış</span></a></li>
+            <li><a href="/servers"><i class="fas fa-server"></i> <span>Sunucular</span></a></li>
+            <li><a href="https://github.com/necatiprok1/luminex" target="_blank"><i class="fab fa-github"></i>
+                    <span>GitHub</span></a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="status-indicator">
+                <div class="indicator-dot <%= system.botStatus %>"></div>
+                <span>Durum: <%= system.botStatus.toUpperCase() %></span>
             </div>
         </div>
+    </aside>
 
-        <section class="cta-section">
-            <h2>Hemen Yönetmeye Başla</h2>
-            <p>Sunucu ayarlarını değiştirmek ve AI analizlerini görmek için sunucularını listele.</p>
-            <a href="/servers" class="btn-primary">Sunucularımı Listele</a>
+    <main class="main-content">
+        <section class="glass-box">
+            <h1>Hoş Geldin, <%= bot.username %>
+            </h1>
+            <p class="subtitle">Luminex'in mevcut durumu ve genel istatistikleri aşağıdadır.</p>
+
+            <div class="stats-container">
+                <div class="stat-card">
+                    <i class="fas fa-layer-group"></i>
+                    <div class="stat-value">
+                        <%= stats.servers %>
+                    </div>
+                    <div class="stat-label">Toplam Sunucu</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-user-friends"></i>
+                    <div class="stat-value">
+                        <%= stats.users.toLocaleString() %>
+                    </div>
+                    <div class="stat-label">Toplam Kullanıcı</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-brain"></i>
+                    <div class="stat-value">
+                        <%= stats.aiMsgCount.toLocaleString() %>
+                    </div>
+                    <div class="stat-label">AI Etkileşimi</div>
+                </div>
+            </div>
+
+            <div class="monitor-section">
+                <h2>Sistem Durumu</h2>
+                <div class="monitor-grid">
+                    <div class="monitor-item">
+                        <div class="monitor-name"><i class="fas fa-clock"></i> Çalışma Süresi</div>
+                        <div class="monitor-value">
+                            <%= system.uptime %>
+                        </div>
+                    </div>
+                    <div class="monitor-item">
+                        <div class="monitor-name"><i class="fas fa-memory"></i> RAM Kullanımı</div>
+                        <div class="monitor-value">
+                            <%= system.memory %>
+                        </div>
+                    </div>
+                    <div class="monitor-item">
+                        <div class="monitor-name"><i class="fab fa-node-js"></i> Node Sürümü</div>
+                        <div class="monitor-value">
+                            <%= system.nodeVersion %>
+                        </div>
+                    </div>
+                    <div class="monitor-item">
+                        <div class="monitor-name"><i class="fas fa-microchip"></i> İşlemci Çekirdeği</div>
+                        <div class="monitor-value">
+                            <%= system.cpuCount %> Çekirdek
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
-    </div>
+    </main>
 
-    <div class="background-blobs">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
+    <div class="bg-animations">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
     </div>
 </body>
+
 </html>
