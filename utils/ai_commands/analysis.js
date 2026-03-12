@@ -65,13 +65,13 @@ module.exports = {
                 // Let's align with new memory structure.
 
                 const { logFact } = require('../memory');
-                logFact(guild.id, subject, info, message.author.tag);
+                await logFact(guild.id, subject, info, message.author.tag);
                 return { success: true, message: `📝 Bilgi eklendi: ${subject}` };
             }
 
             case 'hafiza-listele': {
                 const { searchMemory } = require('../memory');
-                const res = searchMemory(guild.id, "", 10);
+                const res = await searchMemory(guild.id, "", 10);
                 return { success: true, message: `🧠 **Hafıza:**\n${res || 'Boş'}` };
             }
 

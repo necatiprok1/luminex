@@ -193,7 +193,7 @@ module.exports = {
 
                 } catch (error) {
                     console.error('AI Hatası:', error);
-                    try { errorHandler.log('AIMessageError', error); } catch (e) {}
+                    try { errorHandler.log('AIMessageError', error); } catch (e) { }
                 } finally {
                     // 🔓 LOCK RELEASE: İşlem bitti, lock'u kaldır
                     processingMessages.delete(message.id);
@@ -300,7 +300,7 @@ module.exports = {
                 const result = levelSystem.addXP(guildId, message.author.id, message.author.username);
                 if (result && result.leveledUp) {
                     const embed = levelSystem.getLevelUpEmbed(message.author.id, result);
-                    message.channel.send({ embeds: [embed] }).catch(() => {});
+                    message.channel.send({ embeds: [embed] }).catch(() => { });
 
                     if (message.member) {
                         await levelSystem.checkLevelRoles(guildId, message.member, result.newLevel);
@@ -321,7 +321,7 @@ module.exports = {
                 const lastUser = gameData.lastUser;
 
                 if (message.author.id === lastUser) {
-                    await message.reply('Lütfen başka bir kullanıcının sayı girmesini bekleyin.').catch(() => {});
+                    await message.reply('Lütfen başka bir kullanıcının sayı girmesini bekleyin.').catch(() => { });
                     return;
                 }
 
@@ -329,15 +329,15 @@ module.exports = {
                 if (isNaN(number) || number !== currentCount + 1) {
                     const alreadyWarned = db.fetch(`warned_${message.channel.id}_${message.author.id}`);
                     if (!alreadyWarned) {
-                        await message.react('❌').catch(() => {});
+                        await message.react('❌').catch(() => { });
                         const warningMsg = await message.reply('Lütfen sıradaki sayıyı girin.').catch(() => null);
                         db.set(`warned_${message.channel.id}_${message.author.id}`, true);
-                        if (warningMsg && warningMsg.deletable) setTimeout(() => warningMsg.delete().catch(() => {}), 5000);
+                        if (warningMsg && warningMsg.deletable) setTimeout(() => warningMsg.delete().catch(() => { }), 5000);
                     }
                 } else {
-                    await message.react('✅').catch(() => {});
+                    await message.react('✅').catch(() => { });
                     db.set(`sayisayma_${message.channel.id}`, { count: currentCount + 1, lastUser: message.author.id });
-                    await message.reply(`Doğru! Son sayı: **${number}**`).catch(() => {});
+                    await message.reply(`Doğru! Son sayı: **${number}**`).catch(() => { });
                 }
             }
         } catch (e) { /* sayı-sayma hatası sessiz */ }
@@ -346,7 +346,7 @@ module.exports = {
         if (message.attachments.size > 0) {
             try {
                 const fileMemory = require('../utils/memory');
-                fileMemory.logMediaActivity(guildId, message.channel.id);
+                await fileMemory.logMediaActivity(guildId, message.channel.id);
             } catch (e) { }
         }
     }

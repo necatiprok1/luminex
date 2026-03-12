@@ -246,7 +246,7 @@ const LUMINEX_SYSTEM_PROMPT = `Sen LUMINEX AI'sın, Türkiye'nin en gelişmiş D
 5. Yardım istendiğinde hemen yardım et
 
 {ADDITIONAL_CONTEXT}`;
-    "    SÜPER GÜÇLER & MODÜLLER:\n" +
+"    SÜPER GÜÇLER & MODÜLLER:\n" +
     "    1. **Tam Sistem Kontrolü:** Sunucu ayarlarını (küfür/reklam engel) yönet.\n" +
     "    2. **Gelişmiş Moderasyon:** Ban, Kick, Timeout, Sil, Yavaş Mod.\n" +
     "    3. **Otomasyon & Rol:** Kanal aç/kapat, Rol ver/al/oluştur/düzenle/sırala.\n" +
@@ -346,8 +346,8 @@ function getKnowledgeBase(guildId, query) {
             const kbContent = fs.readFileSync(kbPath, 'utf8');
             // Sorgu ile ilgili bölümleri bul
             const lines = kbContent.split('\n');
-            const relevant = lines.filter(line => 
-                line.toLowerCase().includes(queryLower) || 
+            const relevant = lines.filter(line =>
+                line.toLowerCase().includes(queryLower) ||
                 queryLower.includes(line.toLowerCase().trim())
             );
             if (relevant.length > 0) {
@@ -365,27 +365,12 @@ function getKnowledgeBase(guildId, query) {
 /**
  * Akıllı Hafıza Getir (Kullanıcıya ve Sunucuya Özel)
  */
-function getMemory(guildId, userName, userId) {
-    // Yeni memory yapısında searchMemory fonksiyonunu kullanıyoruz veya direkt çekiyoruz
-    // Burada "searchMemory" fonksiyonu zaten var ama ai-service içinden çağırmak için export edilenden değil, 
-    // db'den direkt okuma yapabiliriz veya fileMemory.searchMemory kullanabiliriz.
-    // ai-service.js en üstte require('./memory') yapmıştı.
-    // Ancak kod aşağıda fileMemory.getMemory değil kendi getMemory fonksiyonunu kullanıyor.
-    // Bunu utils/memory.js'deki fonksiyonu kullanacak şekilde güncelleyelim.
-
-    // Şimdilik basitçe son konuşmaları alalım, çünkü "User Specific Memory" ayrı bir yapı gerektirir.
-    // Mevcut memory.js "conversations" ve "facts" tutuyor.
-
-    // Kişisel hafıza için basit bir filtreleme yapalım (DB'den tüm geçmişi çekip filtrelemek pahalı olabilir ama şimdilik OK)
-    const history = db.fetch(`memory_conversations_${guildId}`) || [];
-
-    const userMemories = history
-        .filter(h => h.userId === userId)
-        .slice(-5)
-        .map(h => `[Eski Sohbet] Sen: ${h.userMessage} -> AI: ${h.aiResponse}`);
-
-    if (userMemories.length === 0) return "Bu kullanıcıyla ilgili özel geçmiş bilgi yok.";
-    return userMemories.join('\n');
+async function getMemory(guildId, userName, userId) {
+    const fileMemory = require('./memory');
+    // Adına veya ID'sine göre arama yaparak geçmişi getir
+    const memories = await fileMemory.searchMemory(guildId, userName, 5);
+    if (!memories || memories.trim().length === 0) return "Bu kullanıcıyla ilgili özel geçmiş bilgi yok.";
+    return memories;
 }
 
 /**
@@ -479,7 +464,7 @@ async function chat(arg1, arg2, arg3, arg4, arg5) {
     if (isDev) userTitle = "🛠️ GELİŞTİRİCİ (YARATICIN)";
 
     // Hafıza (Learning System - Kişiselleştirilmiş)
-    const longTermMemory = getMemory(guild.id, author.username, author.id);
+    const longTermMemory = await getMemory(guild.id, author.username, author.id);
     const knowledgeBase = getKnowledgeBase(guild.id, content); // Soru ile ilgili wiki
 
     // Son mesajları al
@@ -492,7 +477,7 @@ async function chat(arg1, arg2, arg3, arg4, arg5) {
             }).join('\n');
         } else {
             // Mock channel or no history access
-            recentMessagesText = fileMemory.getRecentContext(guild.id, 5);
+            recentMessagesText = await fileMemory.getRecentContext(guild.id, 5);
         }
     } catch (err) {
         console.warn("[AI CONTEXT] Geçmiş mesajlar alınamadı:", err.message);
@@ -532,12 +517,12 @@ Yanıt ver:`;
         try {
             // SADECE Llama 3.2 kullanılacak
             const modelsToTry = ['llama3.2'];
-            
+
             for (const modelName of modelsToTry) {
                 try {
                     console.log(`[AI] 🤖 Luminex AI (${modelName}) deneniyor...`);
                     const result = await callOllama(fullPrompt, { model: modelName });
-                    
+
                     if (result && result.trim().length > 0) {
                         response = result;
                         usedModel = `Luminex AI (${modelName})`;
@@ -554,7 +539,7 @@ Yanıt ver:`;
         }
     }
 
-    
+
 
     // === HATA: Hiçbir AI çalışmıyor ===
     if (!response || response.trim().length === 0) {
@@ -564,7 +549,7 @@ Yanıt ver:`;
     // --- SON İŞLEMLER ---
 
     // Hafızaya kaydet
-    fileMemory.logConversation(guild.id, author.id, author.username, content, response);
+    await fileMemory.logConversation(guild.id, author.id, author.username, content, response);
     addToHistory(guild.id, author.id, 'user', content);
     addToHistory(guild.id, author.id, 'model', response);
 
@@ -622,13 +607,13 @@ async function idleReflection(guild) {
 
     try {
         // 1. İstatistikleri Kaydet & Trendleri Al
-        fileMemory.logStat(guild.id, 'memberCount', guild.memberCount);
-        fileMemory.logStat(guild.id, 'channelCount', guild.channels.cache.size);
+        await fileMemory.logStat(guild.id, 'memberCount', guild.memberCount);
+        await fileMemory.logStat(guild.id, 'channelCount', guild.channels.cache.size);
 
-        const memberTrend = fileMemory.getTrends(guild.id, 'memberCount');
-        const adaptiveProfile = fileMemory.getAdaptiveProfile(guild.id);
-        const activityReport = fileMemory.getActivityReport(guild.id);
-        const visionTrends = fileMemory.getVisionTrends(guild.id);
+        const memberTrend = await fileMemory.getTrends(guild.id, 'memberCount');
+        const adaptiveProfile = await fileMemory.getAdaptiveProfile(guild.id);
+        const activityReport = await fileMemory.getActivityReport(guild.id);
+        const visionTrends = await fileMemory.getVisionTrends(guild.id);
 
         // Sunucu Verilerini Topla
         const channelCount = guild.channels.cache.size;
