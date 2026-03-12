@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunucular | <%= bot.username %>
+    </title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="glass-container">
+        <nav>
+            <div class="logo">
+                <img src="<%= bot.displayAvatarURL() %>" alt="Bot Logo">
+                <span>
+                    <%= bot.username %>
+                </span>
+            </div>
+            <ul>
+                <li><a href="/"><i class="fas fa-home"></i> Ana Sayfa</a></li>
+                <li><a href="/servers" class="active"><i class="fas fa-server"></i> Sunucular</a></li>
+            </ul>
+        </nav>
+
+        <header>
+            <h1>Sunucularım</h1>
+            <p>Luminex'in aktif olduğu tüm sunucular aşağıda listelenmiştir.</p>
+        </header>
+
+        <div class="guild-list">
+            <% guilds.forEach(guild=> { %>
+                <div class="guild-card">
+                    <img src="<%= guild.icon %>" alt="<%= guild.name %>">
+                    <div class="guild-info">
+                        <h3>
+                            <%= guild.name %>
+                        </h3>
+                        <p>
+                            <%= guild.memberCount %> Üye
+                        </p>
+                    </div>
+                    <a href="/server/<%= guild.id %>" class="btn-manage">Yönet</a>
+                </div>
+                <% }); %>
+        </div>
+    </div>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+</body>
+
+</html>

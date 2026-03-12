@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   luminex-bot:
     build: .
@@ -7,22 +5,8 @@ services:
     restart: always
     env_file:
       - .env
-    depends_on:
-      - mongodb
-    environment:
-      - MONGO_URI=mongodb://mongodb:27017/luminexdb
     volumes:
       - ./croxydb:/usr/src/app/croxydb
       - ./data:/usr/src/app/data
-
-  mongodb:
-    image: mongo:latest
-    container_name: luminex-db
-    restart: always
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-
-volumes:
-  mongodb_data:
+      - "3000:3000"

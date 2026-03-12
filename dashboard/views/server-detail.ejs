@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= guild.name %> Yönetimi | Luminex
+    </title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="glass-container">
+        <nav>
+            <div class="logo">
+                <img src="<%= bot.displayAvatarURL() %>" alt="Bot Logo">
+                <span>
+                    <%= bot.username %>
+                </span>
+            </div>
+            <ul>
+                <li><a href="/"><i class="fas fa-home"></i> Ana Sayfa</a></li>
+                <li><a href="/servers"><i class="fas fa-server"></i> Sunucular</a></li>
+            </ul>
+        </nav>
+
+        <div class="detail-header">
+            <img src="<%= guild.iconURL() || 'https://cdn.discordapp.com/embed/avatars/0.png' %>" alt="Server Icon">
+            <div>
+                <h1>
+                    <%= guild.name %>
+                </h1>
+                <p>Sunucu ID: <%= guild.id %>
+                </p>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Sol: Ayarlar -->
+            <div class="panel settings-panel">
+                <h2><i class="fas fa-cog"></i> Modül Ayarları</h2>
+                <form action="/server/<%= guild.id %>/update" method="POST">
+                    <div class="setting-item">
+                        <div class="setting-text">
+                            <h3>Küfür Engel</h3>
+                            <p>Yapay zeka ile küfürlerin tespit edilip silinmesini sağlar.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" name="kufurEngel" <%=settings.kufurEngel ? 'checked' : '' %>>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-text">
+                            <h3>Reklam Engel</h3>
+                            <p>Link ve reklam içeren mesajların silinmesini kontrol eder.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" name="reklamEngel" <%=settings.reklamEngel ? 'checked' : '' %>>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-text">
+                            <h3>Otorol Durumu</h3>
+                            <p>Otorol: <%= settings.otorol ? settings.otorol : 'Ayarlanmamış' %>
+                            </p>
+                        </div>
+                        <i class="fas fa-info-circle info-icon"></i>
+                    </div>
+
+                    <button type="submit" class="btn-primary full-width">Ayarları Kaydet</button>
+                </form>
+            </div>
+
+            <!-- Sağ: Analitik Veri (MongoDB) -->
+            <div class="panel analytics-panel">
+                <h2><i class="fas fa-chart-line"></i> AI Aktivite Analizi</h2>
+                <% if(topChannels.length> 0) { %>
+                    <div class="chart-mock">
+                        <% topChannels.forEach(chan=> { %>
+                            <div class="bar-item">
+                                <span class="bar-label">#<%= chan.name %></span>
+                                <div class="bar-container">
+                                    <div class="bar-fill"
+                                        style="width: <%= (chan.count / topChannels[0].count) * 100 %>%"></div>
+                                </div>
+                                <span class="bar-value">
+                                    <%= chan.count %> mesaj
+                                </span>
+                            </div>
+                            <% }); %>
+                    </div>
+                    <% } else { %>
+                        <div class="empty-state">
+                            <i class="fas fa-database"></i>
+                            <p>Henüz yeterli veri toplanmadı. AI sohbet ettikçe burası güncellenecektir.</p>
+                        </div>
+                        <% } %>
+            </div>
+        </div>
+    </div>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-3"></div>
+    </div>
+</body>
+
+</html>

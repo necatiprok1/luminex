@@ -149,4 +149,15 @@ readdirSync("./events").forEach((file) => {
     }
 });
 
+// ══════════════════════════════════════
+// 🌐 DASHBOARD INITIALIZATION
+// ══════════════════════════════════════
+try {
+    const dashboard = require('./dashboard/app');
+    dashboard(client);
+    console.log(chalk.green('[DASHBOARD] ✅ Web paneli modülü yüklendi'));
+} catch (err) {
+    console.error(chalk.red('[DASHBOARD] ❌ Panel yüklenirken hata:'), err.message);
+}
+
 client.login(process.env.TOKEN);
