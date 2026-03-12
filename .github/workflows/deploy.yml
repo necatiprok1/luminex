@@ -1,0 +1,38 @@
+name: Deploy Luminex Bot
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install Dependencies
+        run: npm ci
+        
+      # Buradan sonraki adımlar kendi sunucunuza (Örn: VPS/VDS) bağlamak için.
+      # Şu anlık sadece ssh üzerinden dosyaları güncelleyip docker-compose'u tetikleyecek örnek bir blok koyuyorum.
+      # Gerçek sunucuya bağlandığında bunu aktif edeceğiz.
+      
+      # - name: Deploy to VPS
+      #   uses: appleboy/ssh-action@master
+      #   with:
+      #     host: ${{ secrets.SERVER_HOST }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     password: ${{ secrets.SERVER_PASSWORD }}
+      #     script: |
+      #       cd /path/to/luminex
+      #       git pull origin main
+      #       docker-compose up -d --build

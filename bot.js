@@ -20,6 +20,7 @@ const { Routes } = require("discord-api-types/v10");
 const { readdirSync } = require("fs");
 const moment = require("moment");
 const db = require("croxydb");
+const mongoose = require("mongoose");
 
 // ══════════════════════════════════════
 // 🛡️ ENV VALIDATION
@@ -41,6 +42,19 @@ for (const envVar of optionalEnvVars) {
 }
 
 console.log(chalk.green('[ENV] ✅ Çevresel değişkenler doğrulandı'));
+
+// ══════════════════════════════════════
+// 🗄️ MONGODB CONNECTION
+// ══════════════════════════════════════
+if (process.env.MONGO_URI) {
+    mongoose.connect(process.env.MONGO_URI).then(() => {
+        console.log(chalk.green('[DATABASE] ✅ MongoDB veritabanına başarıyla bağlanıldı.'));
+    }).catch((err) => {
+        console.error(chalk.red('[DATABASE] ❌ MongoDB bağlantı hatası: '), err);
+    });
+} else {
+    console.log(chalk.yellow('[DATABASE] ⚠️ MONGO_URI ayarlanmamış, mevcut veritabanı(croxydb) ile devam ediliyor.'));
+}
 
 // ══════════════════════════════════════
 // 🛡️ ERROR HANDLER
