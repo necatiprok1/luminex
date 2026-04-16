@@ -9,8 +9,8 @@ ENV NODE_ENV=production
 # Paket dosyalarını kopyala
 COPY package*.json ./
 
-# Bağımlılıkları yükle
-RUN npm install && npm cache clean --force
+# Bağımlılıkları yükle (tam cleanup ile)
+RUN npm install --no-optional && npm cache clean --force
 
 # Kaynak kodları kopyala
 COPY . .

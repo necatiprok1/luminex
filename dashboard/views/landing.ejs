@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luminex Dashboard</title>
+    <title>Luminex - Gelişmiş Discord Bot Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #5865F2;
+            --primary-dark: #4752C4;
+            --secondary: #EB459E;
+            --accent: #57F287;
+            --warning: #FEE75C;
+            --dark: #0f172a;
+            --dark-light: #1e293b;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,232 +24,536 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            color: white;
+            overflow-x: hidden;
         }
         
-        nav {
-            background: rgba(0, 0, 0, 0.1);
-            padding: 15px 30px;
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(88, 101, 242, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(235, 69, 158, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(87, 242, 135, 0.1) 0%, transparent 40%);
+            animation: bgPulse 15s ease-in-out infinite;
+        }
+        
+        @keyframes bgPulse {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+        }
+        
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            backdrop-filter: blur(10px);
         }
         
-        .nav-brand {
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .nav-links {
+        .navbar-brand {
             display: flex;
-            gap: 20px;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .navbar-brand .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .navbar-brand span {
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .navbar-nav {
+            display: flex;
+            gap: 12px;
             align-items: center;
         }
         
-        .nav-links a {
-            color: white;
+        .nav-link {
+            color: rgba(255, 255, 255, 0.7);
             text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 14px;
             transition: all 0.3s ease;
         }
         
-        .nav-links a:hover {
-            background: rgba(255, 255, 255, 0.2);
+        .nav-link:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
         }
         
-        .btn-login {
-            background: white;
-            color: #667eea;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 10px 24px;
+            border-radius: 10px;
             font-weight: 600;
-            padding: 10px 24px !important;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
         }
         
-        .btn-login:hover {
-            background: #f0f0f0 !important;
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
         }
         
-        .container {
-            flex: 1;
+        /* Hero Section */
+        .hero {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 120px 40px 80px;
         }
         
-        .content {
+        .hero-content {
             text-align: center;
-            color: white;
-            max-width: 800px;
+            max-width: 900px;
         }
         
-        .logo {
-            font-size: 120px;
-            margin-bottom: 30px;
-            animation: bounce 2s infinite;
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(88, 101, 242, 0.2);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 24px;
+            animation: fadeInUp 0.6s ease;
         }
         
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+        .hero h1 {
+            font-size: clamp(48px, 8vw, 72px);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.6s ease 0.1s backwards;
         }
         
-        h1 {
-            font-size: 48px;
-            margin-bottom: 20px;
-            font-weight: 700;
+        .hero h1 .gradient {
+            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         
-        .subtitle {
+        .hero p {
             font-size: 20px;
-            margin-bottom: 40px;
-            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.7);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+            animation: fadeInUp 0.6s ease 0.2s backwards;
         }
         
-        .cta-buttons {
+        .hero-buttons {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 40px;
+            animation: fadeInUp 0.6s ease 0.3s backwards;
         }
         
-        .btn {
-            padding: 14px 32px;
-            border: none;
-            border-radius: 8px;
+        .btn-hero {
+            padding: 16px 32px;
+            border-radius: 12px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: none;
         }
         
-        .btn-primary {
-            background: white;
-            color: #667eea;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-        
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.2);
+        .btn-hero-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            border: 2px solid white;
+            box-shadow: 0 4px 20px rgba(88, 101, 242, 0.4);
         }
         
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .btn-hero-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(88, 101, 242, 0.5);
         }
         
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin-top: 60px;
-            max-width: 1000px;
-        }
-        
-        .feature {
+        .btn-hero-secondary {
             background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
+            color: white;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        .feature-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
+        .btn-hero-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
         }
         
-        .feature h3 {
-            font-size: 20px;
-            margin-bottom: 10px;
+        /* Features Section */
+        .features {
+            position: relative;
+            z-index: 1;
+            padding: 100px 40px;
+            background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.5) 100%);
         }
         
-        .feature p {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        footer {
+        .section-header {
             text-align: center;
-            padding: 20px;
-            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 60px;
+        }
+        
+        .section-header h2 {
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        
+        .section-header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .features-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(88, 101, 242, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.2), rgba(235, 69, 158, 0.2));
+        }
+        
+        .feature-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: white;
+        }
+        
+        .feature-card p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        
+        /* Stats Section */
+        .stats-section {
+            position: relative;
+            z-index: 1;
+            padding: 80px 40px;
+        }
+        
+        .stats-grid {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-4px);
+        }
+        
+        .stat-value {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
             font-size: 14px;
+            font-weight: 500;
+        }
+        
+        /* Footer */
+        footer {
+            position: relative;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            text-align: center;
+        }
+        
+        footer p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+        
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 16px 20px;
+            }
+            
+            .hero {
+                padding: 100px 20px 60px;
+            }
+            
+            .features, .stats-section {
+                padding: 60px 20px;
+            }
+            
+            .section-header h2 {
+                font-size: 32px;
+            }
+            
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-hero {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
-    <nav>
-        <div class="nav-brand">🎮 Luminex</div>
-        <div class="nav-links">
+    <div class="bg-animation"></div>
+    
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="logo-icon">L</div>
+            <span>Luminex</span>
+        </a>
+        <div class="navbar-nav">
             <% if (isAuthenticated) { %>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/auth/logout">Çıkış Yap</a>
-                <span style="color: white;"><%= user.username %></span>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/auth/logout" class="btn-primary"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a>
             <% } else { %>
-                <a href="/auth/login" class="btn btn-login">Discord ile Giriş Yap</a>
+                <a href="/auth/login" class="btn-primary"><i class="fab fa-discord"></i> Discord ile Giriş</a>
             <% } %>
         </div>
     </nav>
     
-    <div class="container">
-        <div class="content">
-            <div class="logo">🤖</div>
-            <h1>Luminex AI Bot</h1>
-            <p class="subtitle">Discord Sunucunuzu Yönetin & AI ile Sohbet Edin</p>
-            
-            <div class="cta-buttons">
-                <% if (isAuthenticated) { %>
-                    <a href="/dashboard" class="btn btn-primary">📊 Dashboard'a Git</a>
-                <% } else { %>
-                    <a href="/auth/login" class="btn btn-primary">🔐 Oturum Aç</a>
-                <% } %>
-                <a href="https://discord.gg/luminex" class="btn btn-secondary" style="display: none;">💬 Discord Sunucusu</a>
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="fas fa-bolt"></i>
+                Türkiye'nin En Gelişmiş Discord Botu
             </div>
-            
-            <div class="features">
-                <div class="feature">
-                    <div class="feature-icon">🧠</div>
-                    <h3>AI Sohbet</h3>
-                    <p>Gelişmiş yapay zeka ile sunucunuzda sohbet edin ve yardım alın</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Moderasyon</h3>
-                    <p>Güçlü araçlarla sunucunuzu yönetin ve koruyun</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">📊</div>
-                    <h3>İstatistikler</h3>
-                    <p>Detaylı analiتikler ve raporlarla sunucu aktivitesini izleyin</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">⚙️</div>
-                    <h3>Ayarlar</h3>
-                    <p>Seçenekleri özelleştirerek bota tam kontrol sağlayın</p>
-                </div>
+            <h1>
+                Discord Sunucunuzu<br>
+                <span class="gradient">Akıllı Şekilde Yönetin</span>
+            </h1>
+            <p>Yapay zeka destekli moderasyon, gelişmiş istatistikler ve özelleştirilebilir özelliklerle sunucunuzu bir üst seviyeye taşıyın.</p>
+            <div class="hero-buttons">
+                <% if (isAuthenticated) { %>
+                    <a href="/dashboard" class="btn-hero btn-hero-primary">
+                        <i class="fas fa-chart-line"></i> Dashboard'a Git
+                    </a>
+                <% } else { %>
+                    <a href="/auth/login" class="btn-hero btn-hero-primary">
+                        <i class="fab fa-discord"></i> Discord ile Başla
+                    </a>
+                <% } %>
+                <a href="#features" class="btn-hero btn-hero-secondary">
+                    <i class="fas fa-sparkles"></i> Özellikleri Keşfet
+                </a>
             </div>
         </div>
-    </div>
+    </section>
+    
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2>Güçlü Özellikler</h2>
+            <p>Modern Discord yönetimi için ihtiyacınız olan her şey</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                <h3>AI Sohbet Asistanı</h3>
+                <p>Gelişmiş yapay zeka ile sunucunuzda sohbet edin, sorularınıza cevap alın ve yönetiminde kolaylık sağlayın.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                <h3>Akıllı Moderasyon</h3>
+                <p>Otomatik küfür/reklam engelleme, spam koruması ve gelişmiş uyarı sistemi ile güvenli topluluk.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                <h3>Gerçek Zamanlı İstatistikler</h3>
+                <p>Sunucu aktivitesi, üye analitiği ve bot performansını detaylı grafiklerle izleyin.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-trophy"></i></div>
+                <h3>Seviye & XP Sistemi</h3>
+                <p>Üyelerinizi etkileşime teşvik edin, liderlik tabloları ve ödül sistemleri oluşturun.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-microphone"></i></div>
+                <h3>Ses Kanalı Yönetimi</h3>
+                <p>Dinamik ses kanalları oluşturun, kullanıcı izinlerini yönetin ve aktivite takibi yapın.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-lock"></i></div>
+                <h3>Güvenli OAuth2</h3>
+                <p>Discord ile hızlı ve güvenli giriş, rol tabanlı erişim kontrolü ve oturum yönetimi.</p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">50+</div>
+                <div class="stat-label">Aktif Komut</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Ücretsiz</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">24/7</div>
+                <div class="stat-label">Aktiflik</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">TR</div>
+                <div class="stat-label">Türkçe Destek</div>
+            </div>
+        </div>
+    </section>
     
     <footer>
-        <p>© 2026 Luminex AI Bot. Tüm Hakları Saklıdır.</p>
-        <% if (isAuthenticated) { %>
-            <p>Oturum Açan: <strong><%= user.username %></strong></p>
-        <% } %>
+        <p>&copy; 2026 Luminex Dashboard. Tüm hakları saklıdır. | Geliştiren: <a href="#">necati9880</a></p>
     </footer>
 </body>
 </html>

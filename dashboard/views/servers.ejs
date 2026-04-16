@@ -1,77 +1,428 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sunucular | <%= bot.username %>
-    </title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>Sunucular | <%= bot.username %></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #5865F2;
+            --primary-dark: #4752C4;
+            --secondary: #EB459E;
+            --accent: #57F287;
+            --warning: #FEE75C;
+            --danger: #ED4245;
+            --dark: #0f172a;
+            --dark-xl: #1e293b;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        /* Background Animation */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(88, 101, 242, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(235, 69, 158, 0.1) 0%, transparent 50%);
+            animation: bgPulse 20s ease-in-out infinite;
+        }
+        
+        @keyframes bgPulse {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+        }
+        
+        /* Navbar */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .navbar-brand .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .navbar-brand span {
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .navbar-nav {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
+        }
+        
+        /* Container */
+        .container {
+            position: relative;
+            z-index: 1;
+            min-height: calc(100vh - 72px);
+            padding: 40px;
+        }
+        
+        .servers-header {
+            max-width: 1200px;
+            margin: 0 auto 40px;
+        }
+        
+        .servers-header h1 {
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .servers-header p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .servers-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        
+        .server-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .server-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+        
+        .server-card:hover {
+            transform: translateY(-8px);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border-color: rgba(88, 101, 242, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        .server-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .server-header {
+            background: linear-gradient(135deg, rgba(88, 101, 242, 0.2) 0%, rgba(235, 69, 158, 0.1) 100%);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .server-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .server-card:hover .server-icon {
+            transform: scale(1.05);
+        }
+        
+        .server-info h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: white;
+        }
+        
+        .server-info p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .server-body {
+            padding: 20px;
+        }
+        
+        .server-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .meta-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 14px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .meta-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--primary);
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .meta-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 500;
+        }
+        
+        .server-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-manage {
+            flex: 1;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-manage:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 24px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: white;
+        }
+        
+        .empty-state p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 16px;
+        }
+        
+        .badge-admin {
+            display: inline-block;
+            background: rgba(87, 242, 135, 0.2);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 16px 20px;
+            }
+            
+            .container {
+                padding: 24px 16px;
+            }
+            
+            .servers-header h1 {
+                font-size: 32px;
+            }
+            
+            .servers-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
-
 <body>
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <img src="<%= bot.displayAvatarURL() %>" alt="Luminex">
+    <div class="bg-animation"></div>
+    
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="logo-icon">L</div>
             <span>Luminex</span>
+        </a>
+        <div class="navbar-nav">
+            <a href="/dashboard" class="nav-link">Dashboard</a>
+            <a href="/servers" class="nav-link active">Sunucularım</a>
+            <a href="/auth/logout" class="btn-primary"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a>
         </div>
-        
-        <!-- User Info -->
-        <div class="user-info">
-            <img src="<%= user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png' %>" alt="Avatar" class="user-avatar">
-            <div class="user-details">
-                <span class="user-name"><%= user.username %></span>
-                <span class="user-status">Çevrimiçi</span>
-            </div>
-        </div>
-        
-        <ul class="sidebar-menu">
-            <li><a href="/dashboard"><i class="fas fa-th-large"></i> <span>Genel Bakış</span></a></li>
-            <li><a href="/servers" class="active"><i class="fas fa-server"></i> <span>Sunucular</span></a></li>
-            <li><a href="https://github.com/necatiprok1/luminex" target="_blank"><i class="fab fa-github"></i>
-                    <span>GitHub</span></a></li>
-        </ul>
-        
-        <!-- Logout Button -->
-        <div class="sidebar-footer">
-            <a href="/auth/logout" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Çıkış Yap</span>
-            </a>
-        </div>
-    </aside>
-
-    <main class="main-content">
-        <section class="glass-box">
+    </nav>
+    
+    <div class="container">
+        <div class="servers-header">
             <h1>Sunucularım</h1>
-            <p class="subtitle">Luminex'in aktif olduğu tüm sunucuları aşağıdan yönetebilirsiniz.</p>
-
-            <div class="guilds-grid">
-                <% guilds.forEach(guild=> { %>
-                    <div class="guild-card">
-                        <img src="<%= guild.icon %>" class="guild-avatar" alt="<%= guild.name %>">
-                        <div class="guild-name">
-                            <h3>
-                                <%= guild.name %>
-                            </h3>
-                            <div class="guild-members"><i class="fas fa-user-friends"></i>
-                                <%= guild.memberCount %> Üye
+            <p>Yönetme izniniz olan <%= guilds.length %> sunucuyu aşağıdan yönetebilirsiniz</p>
+        </div>
+        
+        <% if (guilds && guilds.length > 0) { %>
+            <div class="servers-grid">
+                <% guilds.forEach(guild => { %>
+                    <div class="server-card">
+                        <div class="server-header">
+                            <img src="<%= guild.icon %>" alt="<%= guild.name %>" class="server-icon">
+                            <div class="server-info">
+                                <h3><%= guild.name %><% if (guild.isAdmin) { %><span class="badge-admin">Admin</span><% } %></h3>
+                                <p><%= guild.memberCount %> üye</p>
                             </div>
                         </div>
-                        <a href="/server/<%= guild.id %>" class="btn-manage">Yönet</a>
+                        <div class="server-body">
+                            <div class="server-meta">
+                                <div class="meta-item">
+                                    <span class="meta-value"><%= guild.memberCount %></span>
+                                    <span class="meta-label">Üye</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-value"><i class="fas fa-check" style="color: var(--accent);"></i></span>
+                                    <span class="meta-label">Aktif</span>
+                                </div>
+                            </div>
+                            <div class="server-actions">
+                                <a href="/server/<%= guild.id %>" class="btn-manage">
+                                    <i class="fas fa-cog"></i> Yönet
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                    <% }); %>
+                <% }); %>
             </div>
-        </section>
-    </main>
-
-    <div class="bg-animations">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
+        <% } else { %>
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+                <h2>Sunucu Bulunamadı</h2>
+                <p>Şu anda yönetme izniniz olan sunucu yok</p>
+            </div>
+        <% } %>
     </div>
 </body>
-
 </html>

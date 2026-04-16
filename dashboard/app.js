@@ -8,7 +8,7 @@ const db = require('../utils/mongodb-helper');
 const os = require('os');
 const moment = require('moment');
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
+const MongoStore = require('connect-mongo').default || require('connect-mongo');
 const MemoryStore = require('memorystore')(session);
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
@@ -57,22 +57,56 @@ module.exports = (client) => {
     app.use(express.urlencoded({ extended: true }));
     app.use(express.json());
     
+    // Debug middleware: log all incoming requests and cookies
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/auth') || req.path === '/servers') {
+            console.log(`[REQUEST] ${req.method} ${req.path}`);
+            console.log(`[REQUEST] Cookies:`, req.headers.cookie);
+            console.log(`[REQUEST] SessionID in header:`, req.headers['cookie']?.split('connect.sid=')[1]?.split(';')[0]);
+        }
+        next();
+    });
+    
     // 🔐 Session Store Configuration
-    // Use MongoDB if connected, otherwise fall back to MemoryStore
+    // Always use MongoDB based on MONGO_URI environment variable
     let sessionStore;
-    if (mongoose.connection.readyState === 1) {
-        sessionStore = new MongoStore({
-            mongoUrl: process.env.MONGO_URI,
-            touchAfter: 24 * 3600, // lazy session update (in seconds)
-            dbName: 'luminex',
-            collectionName: 'sessions'
-        });
-        console.log('[DASHBOARD] ✅ Session store: MongoDB');
+    const MONGO_URI = process.env.MONGO_URI;
+    
+    if (MONGO_URI) {
+        try {
+            sessionStore = new MongoStore({
+                mongoUrl: MONGO_URI,
+                touchAfter: 24 * 3600,
+                dbName: 'luminex',
+                collectionName: 'sessions'
+            });
+            
+            // Debug events
+            sessionStore.on('connected', () => {
+                console.log('[DASHBOARD] ✅ MongoStore connected');
+            });
+            
+            sessionStore.on('disconnected', () => {
+                console.log('[DASHBOARD] ⚠️  MongoStore disconnected');
+            });
+            
+            sessionStore.on('error', (err) => {
+                console.error('[DASHBOARD] ❌ MongoStore error:', err.message);
+            });
+            
+            console.log('[DASHBOARD] ✅ Session store: MongoDB (MongoStore)');
+        } catch (err) {
+            console.error('[DASHBOARD] ❌ MongoDB session store error:', err.message);
+            sessionStore = new MemoryStore({
+                checkPeriod: 86400000
+            });
+            console.log('[DASHBOARD] ⚠️  Fallback session store: Memory');
+        }
     } else {
         sessionStore = new MemoryStore({
             checkPeriod: 86400000 // prune expired entries every 24h
         });
-        console.log('[DASHBOARD] ⚠️  Session store: Memory (not recommended for production)');
+        console.log('[DASHBOARD] ⚠️  Session store: Memory (MONGO_URI not set)');
     }
 
     // 🔐 Session Middleware with Persistent Store
@@ -88,6 +122,16 @@ module.exports = (client) => {
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         }
     }));
+    
+    // Debug session after it's loaded
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/auth') || req.path === '/servers') {
+            console.log(`[SESSION] SessionID: ${req.sessionID}`);
+            console.log(`[SESSION] Session keys:`, Object.keys(req.session || {}));
+            console.log(`[SESSION] userId present:`, !!req.session?.userId);
+        }
+        next();
+    });
 
     // � RATE LIMITING MIDDLEWARE
     // OAuth token endpoint limiter (10 requests per minute per IP)
@@ -169,11 +213,18 @@ module.exports = (client) => {
             req.session.loginTime = Date.now();
             
             console.log(`[AUTH] ✅ User logged in: ${user.username} (${user.id}) - Token expires in ${Math.floor(tokenData.expires_in / 36400)} days`);
+            console.log(`[AUTH] 📝 Before save - Session ID: ${req.sessionID}`);
+            console.log(`[AUTH] 📝 Session data:`, {
+                userId: req.session.userId,
+                username: req.session.username,
+                tokenExpiresAt: new Date(tokenExpiresAt).toISOString()
+            });
             
             // Save session before redirecting
             req.session.save((err) => {
                 if (err) {
-                    console.error('[AUTH] Session save error:', err);
+                    console.error('[AUTH] ❌ Session save error:', err);
+                    console.error('[AUTH] Session data at save:', req.session);
                     return res.status(500).render('error', {
                         status: 500,
                         message: 'Oturum kaydı sırasında bir hata oluştu',
@@ -182,6 +233,8 @@ module.exports = (client) => {
                     });
                 }
                 // Redirect to servers list after session is saved
+                console.log(`[AUTH] ✅ Session saved - Session ID after save: ${req.sessionID}`);
+                console.log('[AUTH] ✅ Cookie header:', res.getHeader('set-cookie'));
                 res.redirect('/servers');
             });
         } catch (error) {
@@ -363,16 +416,35 @@ module.exports = (client) => {
     app.get('/servers', ensureAuthenticated, async (req, res) => {
         try {
             // Get user's guilds where they are admin
-            const userGuilds = client.guilds.cache.filter(g => {
-                const member = g.members.cache.get(req.session.userId);
-                if (!member) return false;
-                return member.permissions.has('Administrator') || req.session.userId === require('../../config.json').ownerID;
-            }).map(g => ({
-                id: g.id,
-                name: g.name,
-                icon: g.iconURL() || 'https://cdn.discordapp.com/embed/avatars/0.png',
-                memberCount: g.memberCount
-            }));
+            const config = require('../config.json');
+            const userGuilds = [];
+            
+            for (const [guildId, guild] of client.guilds.cache) {
+                try {
+                    // Fetch members to ensure cache is populated
+                    await guild.members.fetch({ user: req.session.userId });
+                    const member = guild.members.cache.get(req.session.userId);
+                    
+                    if (!member) continue;
+                    
+                    const isAdmin = member.permissions.has('Administrator');
+                    const isOwner = req.session.userId === config.ownerID;
+                    
+                    if (isAdmin || isOwner) {
+                        userGuilds.push({
+                            id: guild.id,
+                            name: guild.name,
+                            icon: guild.iconURL() || 'https://cdn.discordapp.com/embed/avatars/0.png',
+                            memberCount: guild.memberCount,
+                            isAdmin: isAdmin,
+                            isOwner: isOwner
+                        });
+                    }
+                } catch (err) {
+                    console.warn(`[DASHBOARD] Error processing guild ${guildId}:`, err.message);
+                    continue;
+                }
+            }
 
             res.render('servers', {
                 bot: client.user,
@@ -395,58 +467,90 @@ module.exports = (client) => {
 
     // 🌟 Özel Sunucu İstatistikleri ve Ayarları
     app.get('/server/:id', ensureAuthenticated, checkGuildAdmin(client), async (req, res) => {
-        const guild = req.guild;
-        if (!guild) return res.redirect('/servers');
+        try {
+            const guild = req.guild;
+            if (!guild) return res.redirect('/servers');
+            
+            // Fetch all members to populate cache (required for member operations)
+            // Use pagination for large servers to avoid timeout
+            const memberFetchPromise = guild.members.fetch({ limit: null, withPresences: false });
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Member fetch timeout')), 10000)
+            );
+            
+            Promise.race([memberFetchPromise, timeoutPromise])
+                .then(() => console.log(`[DASHBOARD] Members fetched for guild ${guild.id} (${guild.memberCount} members)`))
+                .catch(err => console.warn(`[DASHBOARD] Member fetch issue for ${guild.id}: ${err.message} - continuing with cached members`));
 
-        // Mevcut croxydb ayarlarını okuma
-        const kufurEngel = (await db.fetch(`kufurengel_${guild.id}`)) ? true : false;
-        const reklamEngel = (await db.fetch(`reklamengel_${guild.id}`)) ? true : false;
-        const otorolId = await db.fetch(`otorol_${guild.id}`);
-        const hosgeldinKanalId = await db.fetch(`hosgeldinkanal_${guild.id}`);
-        const logKanalId = await db.fetch(`log_channel_${guild.id}`);
+            // Parallel database fetch calls for better performance
+            const [kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, logKanalId, aiMod, proactiveMod, levelMod, logMod] = await Promise.all([
+                db.fetch(`kufurengel_${guild.id}`).then(v => !!v),
+                db.fetch(`reklamengel_${guild.id}`).then(v => !!v),
+                db.fetch(`otorol_${guild.id}`),
+                db.fetch(`hosgeldinkanal_${guild.id}`),
+                db.fetch(`log_channel_${guild.id}`),
+                db.fetch(`aimod_${guild.id}`).then(v => v !== false),
+                db.fetch(`proaktif_mod_${guild.id}`).then(v => v === true),
+                db.fetch(`module_${guild.id}_seviye-sistemi`).then(v => v !== false),
+                db.fetch(`module_${guild.id}_log-sistemi`).then(v => v === true)
+            ]);
 
-        // Modül Durumları
-        const aiMod = (await db.fetch(`aimod_${guild.id}`)) !== false;
-        const proactiveMod = (await db.fetch(`proaktif_mod_${guild.id}`)) === true;
-        const levelMod = (await db.fetch(`module_${guild.id}_seviye-sistemi`)) !== false;
-        const logMod = (await db.fetch(`module_${guild.id}_log-sistemi`)) === true;
+            // Sunucu Rolleri ve Kanalları (from cache)
+            const roles = guild.roles.cache.filter(r => r.name !== '@everyone').map(r => ({ id: r.id, name: r.name }));
+            const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText).map(c => ({ id: c.id, name: c.name }));
 
-        // Seviye İstatistikleri (Liderlik Tablosu)
-        const levelSystem = require('../utils/level-system');
-        const leaderboard = await levelSystem.getLeaderboard(guild.id, 5);
-
-        // Sunucu Rolleri ve Kanalları
-        const roles = guild.roles.cache.filter(r => r.name !== '@everyone').map(r => ({ id: r.id, name: r.name }));
-        const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText).map(c => ({ id: c.id, name: c.name }));
-
-        // Veritabanından Analitik Veri (MongoDB Activity & ModLog)
-        let topChannels = [];
-        let modLogs = [];
-        if (mongoose.connection.readyState === 1) {
-            const activities = await Activity.find({ guildId: guild.id })
-                .sort({ count: -1 })
-                .limit(5);
-            topChannels = activities.map(a => ({ name: a.channelName || 'Bilinmiyor', count: a.count }));
-
-            modLogs = await ModLog.find({ guildId: guild.id })
-                .sort({ timestamp: -1 })
-                .limit(10);
-        }
-
-        res.render('server-detail', {
-            bot: client.user,
-            guild,
-            settings: { kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, logKanalId, aiMod, levelMod, logMod, proactiveMod },
-            roles,
-            textChannels,
-            topChannels,
-            leaderboard,
-            modLogs,
-            user: {
-                username: req.session.username,
-                avatar: req.session.avatar
+            // Seviye İstatistikleri (Liderlik Tablosu) - fetch in background
+            let leaderboard = [];
+            try {
+                const levelSystem = require('../utils/level-system');
+                leaderboard = await Promise.race([
+                    levelSystem.getLeaderboard(guild.id, 5),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Leaderboard timeout')), 5000))
+                ]);
+            } catch (err) {
+                console.warn(`[DASHBOARD] Leaderboard fetch timeout for ${guild.id}`);
             }
-        });
+
+            // Veritabanından Analitik Veri (MongoDB Activity & ModLog) - fetch in parallel
+            let topChannels = [];
+            let modLogs = [];
+            if (mongoose.connection.readyState === 1) {
+                const [activities, logs] = await Promise.allSettled([
+                    Activity.find({ guildId: guild.id }).sort({ count: -1 }).limit(5).exec(),
+                    ModLog.find({ guildId: guild.id }).sort({ timestamp: -1 }).limit(10).exec()
+                ]);
+                
+                if (activities.status === 'fulfilled') {
+                    topChannels = activities.value.map(a => ({ name: a.channelName || 'Bilinmiyor', count: a.count }));
+                }
+                if (logs.status === 'fulfilled') {
+                    modLogs = logs.value;
+                }
+            }
+
+            res.render('server-detail', {
+                bot: client.user,
+                guild,
+                settings: { kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, logKanalId, aiMod, levelMod, logMod, proactiveMod },
+                roles,
+                textChannels,
+                topChannels,
+                leaderboard,
+                modLogs,
+                user: {
+                    username: req.session.username,
+                    avatar: req.session.avatar
+                }
+            });
+        } catch (error) {
+            console.error('[DASHBOARD] Server detail error:', error);
+            res.status(500).render('error', {
+                status: 500,
+                message: 'Sunucu detayları yüklenirken hata oluştu',
+                actionUrl: '/servers',
+                actionText: 'Sunuculara Dön'
+            });
+        }
     });
 
     // 🌟 Form Post İşlemleri (Ayarları Değiştir) with Rate Limiting

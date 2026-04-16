@@ -9,7 +9,18 @@ const config = require("../../config.json");
  * Middleware to check if user is authenticated
  */
 const ensureAuthenticated = (req, res, next) => {
+    console.log('[AUTH-CHECK] Request to protected route:', req.path);
+    console.log(`[AUTH-CHECK] 📍 Session ID from request: ${req.sessionID}`);
+    console.log('[AUTH-CHECK] 📍 Cookies received:', req.cookies);
+    console.log('[AUTH-CHECK] Session data:', {
+        hasSession: !!req.session,
+        hasUserId: !!req.session?.userId,
+        userId: req.session?.userId,
+        sessionID: req.sessionID
+    });
+    
     if (!req.session || !req.session.userId) {
+        console.log('[AUTH-CHECK] ❌ No session or userId found');
         return res.status(401).render('error', {
             status: 401,
             message: 'Oturum açmanız gerekmektedir',
@@ -23,7 +34,7 @@ const ensureAuthenticated = (req, res, next) => {
     const tokenExpiresAt = req.session.tokenExpiresAt || now;
     
     if (now > tokenExpiresAt) {
-        console.log(`[AUTH] Token expired for user ${req.session.userId}`);
+        console.log(`[AUTH-CHECK] ❌ Token expired for user ${req.session.userId}`);
         req.session.destroy((err) => {
             if (err) console.error('[AUTH] Logout error:', err);
         });
@@ -36,6 +47,7 @@ const ensureAuthenticated = (req, res, next) => {
         });
     }
 
+    console.log('[AUTH-CHECK] ✅ Authentication passed for user:', req.session.userId);
     next();
 };
 

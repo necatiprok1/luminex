@@ -3,7 +3,7 @@
  * Handles user profile data, leaderboards, and activity
  */
 
-const { Conversation, Activity } = require('../models/GuildMemory');
+const { Conversation, Activity } = require('../../models/GuildMemory');
 
 module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
     return {

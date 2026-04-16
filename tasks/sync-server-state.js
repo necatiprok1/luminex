@@ -152,13 +152,24 @@ class ServerStateSync {
     }
 
     /**
-     * Guild members'ı fetch et (pagination desteği)
+     * Guild members'ı fetch et (pagination desteği ve timeout)
      * @private
      */
     async fetchMembers(guild) {
         try {
-            // Tüm members'ı fetch et (cache kullanılır)
-            const members = await guild.members.fetch({ limit: null });
+            // Timeout ile members fetch (30 saniye max)
+            const fetchPromise = guild.members.fetch({ 
+                limit: null, 
+                withPresences: false 
+            });
+            
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Member fetch timeout after 30s')), 30000)
+            );
+            
+            const members = await Promise.race([fetchPromise, timeoutPromise]);
+
+            console.log(chalk.cyan(`[SYNC]   ✓ Fetched ${members.size} members`));
 
             return members.map(member => ({
                 userId: member.id,
@@ -171,8 +182,21 @@ class ServerStateSync {
             }));
 
         } catch (error) {
-            console.error(chalk.yellow(`[SYNC] ⚠️ Failed to fetch members: ${error.message}`));
-            return [];
+            if (error.message === 'Member fetch timeout after 30s') {
+                console.log(chalk.yellow(`[SYNC] ⚠️ Member fetch timed out after 30s. Continuing with cached members (${guild.members.cache.size} cached)`));
+                return guild.members.cache.map(member => ({
+                    userId: member.id,
+                    username: member.user.username,
+                    discriminator: member.user.discriminator,
+                    roles: member.roles.cache.map(r => r.id),
+                    joinedAt: member.joinedAt,
+                    nickname: member.nickname || null,
+                    avatarUrl: member.user.displayAvatarURL()
+                }));
+            } else {
+                console.error(chalk.red(`[SYNC] ❌ Failed to fetch members: ${error.message}`));
+                throw error;
+            }
         }
     }
 
