@@ -16,7 +16,7 @@ const OPENROUTER_BASE_URL = '';
 
 // Ollama Konfigürasyonu (Fallback - Kendi AI'mız)
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';
 
 // Model öncelik sırası - SADECE LLAMA 3.2
 const MODEL_PRIORITY = [
