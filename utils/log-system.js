@@ -1,5 +1,6 @@
-const db = require('croxydb');
 const { EmbedBuilder } = require('discord.js');
+const { ModLog } = require('../models/GuildMemory');
+const mongoose = require('mongoose');
 
 /**
  * 📋 Luminex Log Sistemi
@@ -70,6 +71,20 @@ class LogSystem {
                 name: '📎 Ekler',
                 value: attNames.length > 1024 ? attNames.slice(0, 1020) + '...' : attNames
             });
+        }
+
+        // MongoDB save
+        if (mongoose.connection.readyState === 1) {
+            try {
+                await ModLog.create({
+                    guildId: message.guild.id,
+                    action: 'Mesaj Silme',
+                    moderatorId: message.author.id,
+                    moderatorTag: message.author.tag,
+                    content: message.content || '*İçerik yok*',
+                    timestamp: new Date()
+                });
+            } catch (err) { }
         }
 
         await this.sendLog(message.guild, embed);
@@ -175,6 +190,22 @@ class LogSystem {
                 { name: '📝 Sebep', value: reason || 'Belirtilmedi' }
             )
             .setTimestamp();
+
+        // MongoDB save
+        if (mongoose.connection.readyState === 1) {
+            try {
+                await ModLog.create({
+                    guildId: guild.id,
+                    action: action.toUpperCase(),
+                    moderatorId: moderator.id,
+                    moderatorTag: moderator.tag || moderator.username,
+                    targetId: target.id,
+                    targetTag: target.tag || target.username,
+                    reason: reason || 'Belirtilmedi',
+                    timestamp: new Date()
+                });
+            } catch (err) { }
+        }
 
         await this.sendLog(guild, embed);
     }

@@ -1,8 +1,9 @@
 const express = require('express');
 const app = express();
 const path = require('path');
+const { ChannelType } = require('discord.js');
 const mongoose = require('mongoose');
-const { Conversation, Activity } = require('../models/GuildMemory'); // Analytics Model
+const { Conversation, Activity, ModLog } = require('../models/GuildMemory'); // Analytics Model
 const db = require('croxydb');
 const os = require('os');
 const moment = require('moment');
@@ -24,18 +25,30 @@ module.exports = (client) => {
         try {
             // İstatistikler (Discord client API'den)
             const servers = client.guilds.cache.size;
-            const users = client.guilds.cache.reduce((a, b) => a + b.memberCount, 0);
+            const users = client.guilds.cache.reduce((a, b) => a + b.memberCount, 0); // This is total members, not unique users
             const channels = client.guilds.cache.reduce((a, b) => a + b.channels.cache.size, 0);
 
             // Sistem Bilgileri
-            const systemInfo = {
-                uptime: moment.duration(process.uptime() * 1000).format("d [gün], h [saat], m [dakika]"),
-                memory: (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + ' MB',
-                nodeVersion: process.version,
-                platform: os.platform(),
-                cpuCount: os.cpus().length,
-                botStatus: client.presence.status
+            const uptime = moment.duration(client.uptime).format(" D [gün], H [saat], m [dakika], s [saniye]");
+            const memoryUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+            const nodeVersion = process.version;
+            const platform = process.platform;
+            const cpuCount = os.cpus().length;
+
+            // AI Sağlık Kontrolü
+            const aiHealth = {
+                openRouter: !!process.env.OPENROUTER_API_KEY,
+                ollama: false,
+                gemini: !!process.env.GEMINI_API_KEY,
+                mongo: mongoose.connection.readyState === 1
             };
+
+            // Ollama check (non-blocking) - Use URL from process.env if available
+            try {
+                const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
+                const resp = await fetch(ollamaUrl + '/api/tags').catch(() => null);
+                aiHealth.ollama = !!(resp && resp.ok);
+            } catch (e) { }
 
             // AI Analiz İstatistikleri (MongoDB'den)
             let aiMsgCount = 0;
@@ -45,8 +58,15 @@ module.exports = (client) => {
 
             res.render('index', {
                 bot: client.user,
-                stats: { servers, users, channels, aiMsgCount },
-                system: systemInfo
+                stats: {
+                    guilds: servers, // Renamed from 'servers' to 'guilds' for consistency
+                    users: users,
+                    channels: channels,
+                    aiMsgCount: aiMsgCount,
+                    commands: 45 // Örnek değer
+                },
+                system: { uptime, memoryUsage, nodeVersion, platform, cpuCount, botStatus: client.presence.status },
+                aiHealth
             });
         } catch (error) {
             console.error("Dashboard Error (Home):", error);
@@ -80,28 +100,45 @@ module.exports = (client) => {
         const reklamEngel = db.fetch(`reklamengel_${guild.id}`) ? true : false;
         const otorolId = db.fetch(`otorol_${guild.id}`);
         const hosgeldinKanalId = db.fetch(`hosgeldinkanal_${guild.id}`);
-        const aiMod = db.fetch(`aimod_${guild.id}`) !== false; // Varsayılan açık
+        const logKanalId = db.fetch(`log_channel_${guild.id}`);
+
+        // Modül Durumları
+        const aiMod = db.fetch(`aimod_${guild.id}`) !== false;
+        const proactiveMod = db.fetch(`proaktif_mod_${guild.id}`) === true;
+        const levelMod = db.fetch(`module_${guild.id}_seviye-sistemi`) !== false;
+        const logMod = db.fetch(`module_${guild.id}_log-sistemi`) === true;
+
+        // Seviye İstatistikleri (Liderlik Tablosu)
+        const levelSystem = require('../utils/level-system');
+        const leaderboard = levelSystem.getLeaderboard(guild.id, 5);
 
         // Sunucu Rolleri ve Kanalları
         const roles = guild.roles.cache.filter(r => r.name !== '@everyone').map(r => ({ id: r.id, name: r.name }));
         const textChannels = guild.channels.cache.filter(c => c.type === ChannelType.GuildText).map(c => ({ id: c.id, name: c.name }));
 
-        // Veritabanından Analitik Veri (MongoDB Activity)
+        // Veritabanından Analitik Veri (MongoDB Activity & ModLog)
         let topChannels = [];
+        let modLogs = [];
         if (mongoose.connection.readyState === 1) {
             const activities = await Activity.find({ guildId: guild.id })
                 .sort({ count: -1 })
                 .limit(5);
             topChannels = activities.map(a => ({ name: a.channelName || 'Bilinmiyor', count: a.count }));
+
+            modLogs = await ModLog.find({ guildId: guild.id })
+                .sort({ timestamp: -1 })
+                .limit(10);
         }
 
         res.render('server-detail', {
             bot: client.user,
             guild,
-            settings: { kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, aiMod },
+            settings: { kufurEngel, reklamEngel, otorolId, hosgeldinKanalId, logKanalId, aiMod, levelMod, logMod, proactiveMod },
             roles,
             textChannels,
-            topChannels
+            topChannels,
+            leaderboard,
+            modLogs
         });
     });
 
@@ -132,6 +169,27 @@ module.exports = (client) => {
             db.set(`aimod_${guildId}`, false);
         }
 
+        // Proaktif Mod Güncelleme
+        if (req.body.proactiveMod === 'on') {
+            db.set(`proaktif_mod_${guildId}`, true);
+        } else {
+            db.set(`proaktif_mod_${guildId}`, false);
+        }
+
+        // Seviye Sistemi Güncelleme
+        if (req.body.levelMod === 'on') {
+            db.set(`module_${guildId}_seviye-sistemi`, true);
+        } else {
+            db.set(`module_${guildId}_seviye-sistemi`, false);
+        }
+
+        // Log Sistemi Güncelleme
+        if (req.body.logMod === 'on') {
+            db.set(`module_${guildId}_log-sistemi`, true);
+        } else {
+            db.set(`module_${guildId}_log-sistemi`, false);
+        }
+
         // Otorol Güncelleme
         if (req.body.otorol && req.body.otorol !== 'none') {
             db.set(`otorol_${guildId}`, req.body.otorol);
@@ -142,8 +200,17 @@ module.exports = (client) => {
         // Hoşgeldin Kanalı Güncelleme
         if (req.body.welcomeChannel && req.body.welcomeChannel !== 'none') {
             db.set(`hosgeldinkanal_${guildId}`, req.body.welcomeChannel);
+            db.set(`module_${guildId}_hosgeldin-sistemi`, true); // Modülü de aktif et
         } else {
             db.delete(`hosgeldinkanal_${guildId}`);
+            db.delete(`module_${guildId}_hosgeldin-sistemi`);
+        }
+
+        // Log Kanalı Güncelleme
+        if (req.body.logChannel && req.body.logChannel !== 'none') {
+            db.set(`log_channel_${guildId}`, req.body.logChannel);
+        } else {
+            db.delete(`log_channel_${guildId}`);
         }
 
         // Başarılı döngü

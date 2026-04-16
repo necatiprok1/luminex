@@ -26,26 +26,16 @@ module.exports = {
         }
 
         // 2. AI Hoşgeldin Sistemi
-        const isWelcomeActive = db.fetch(`module_${member.guild.id}_hosgeldin-sistemi`);
-        if (!isWelcomeActive) return;
+        // Dashboard 'hosgeldinkanal_GUILDID' anahtarını kullanıyor.
+        const welcomeChannelId = db.fetch(`hosgeldinkanal_${member.guild.id}`);
+        const isAIWelcomeActive = db.fetch(`aimod_${member.guild.id}`) !== false; // AI Modu açık mı?
 
-        // Hoşgeldin kanalı belirle (Log veya genel)
-        // Genelde 'hosgeldin-kanali' diye bir ayar olur ama burada modül sistemine entegre ediyoruz.
-        // Basitlik için veritabanında 'hosgeldin_kanal_GUILDID' yoksa 'gelen-giden', 'hosgeldin' ara.
-        const welcomeChannelId = db.fetch(`hosgeldin_kanal_${member.guild.id}`);
+        if (!welcomeChannelId) return;
+
         let channel = member.guild.channels.cache.get(welcomeChannelId);
+        if (!channel) return;
 
-        if (!channel) {
-            channel = member.guild.channels.cache.find(c =>
-                c.name.includes("gelen-giden") ||
-                c.name.includes("hosgeldin") ||
-                c.name.includes("welcome") ||
-                c.name.includes("genel") ||
-                c.name.includes("chat")
-            );
-        }
-
-        if (channel) {
+        if (channel && isAIWelcomeActive) { // AI hoşgeldin sistemi sadece AI modu açıksa çalışır
             // AI için prompt hazırla
             const prompt = `Sunucuya yeni biri katıldı!\n` +
                 `Kullanıcı: ${member.user.tag}\n` +
@@ -72,7 +62,7 @@ module.exports = {
                     channel // Kanal bağlamı
                 );
 
-                if (aiResponse && aiResponse.response) {
+                if (aiResponse && aiResponse.success && aiResponse.response) {
                     let finalResponse = aiResponse.response;
 
                     // Komutları ayıkla ve çalıştır
@@ -80,10 +70,7 @@ module.exports = {
                         const commands = aiService.parseCommand(finalResponse);
                         if (commands) {
                             for (const cmd of commands) {
-                                // Komutu metinden temizle
                                 finalResponse = finalResponse.replace(cmd.fullMatch, '').trim();
-
-                                // Komutu çalıştır
                                 await aiService.executeCommand(cmd, {
                                     guild: member.guild,
                                     channel: channel,
@@ -95,11 +82,22 @@ module.exports = {
                     }
 
                     if (finalResponse.length > 0) {
-                        channel.send(finalResponse);
+                        await channel.send(finalResponse);
                     }
+                } else {
+                    // AI Yanıt veremezse yedek (Fallback) mesaj
+                    const fallbackMessages = [
+                        `👋 Hoş geldin **${member.user.username}**! Sunucumuza renk kattın.`,
+                        `✨ Aramıza hoş geldin **${member.user.username}**. Keyifli vakit geçirmen dileğiyle!`,
+                        `🤖 Selam **${member.user.username}**! Ben bu sunucunun yapay zekasıyım. Seninle tanıştığıma sevindim.`
+                    ];
+                    const randomMsg = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+                    await channel.send(randomMsg);
                 }
             } catch (e) {
                 console.error("AI Welcome Hatası:", e);
+                // Hata durumunda bile en basit mesajı gönder
+                channel.send(`👋 Hoş geldin ${member}!`).catch(() => { });
             }
         }
     }

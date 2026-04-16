@@ -1,4 +1,6 @@
 const { Events, ChannelType, PermissionFlagsBits, EmbedBuilder } = require("discord.js");
+const delay = require('delay');
+const modSystem = require('../utils/moderation-system');
 const db = require("croxydb");
 const fs = require("node:fs");
 const cooldown = require("../utils/cooldown");
@@ -131,9 +133,13 @@ module.exports = {
 
                     if (!result.success) {
                         // Eğer aktif dinleme ile geldiyse ve hata varsa sessiz kal (spam olmasın)
-                        if (!hasPrefix && !hasMention && !isReplyToBot) return;
+                        if (!hasPrefix && !hasMention && !isReplyToBot) {
+                            processingMessages.delete(message.id);
+                            return;
+                        }
 
-                        await message.reply({ content: result.response || '❌ Bir hata oluştu.' });
+                        await message.reply({ content: result.response || '🧠 Bu aralar zihnim biraz bulanık, lütfen kısa bir süre sonra tekrar dene.' });
+                        processingMessages.delete(message.id);
                         return;
                     }
 
@@ -148,7 +154,9 @@ module.exports = {
 
                             for (const cmd of commands) {
                                 // Komut ve parametrelerin birleşimi bir imza oluşturur
-                                const commandSignature = `${cmd.command}:${cmd.params.join(':')}`;
+                                const cmdName = cmd.command || cmd.action || 'unknown';
+                                const cmdArgs = cmd.params || cmd.args || [];
+                                const commandSignature = `${cmdName}:${Array.isArray(cmdArgs) ? cmdArgs.join(':') : ''}`;
                                 if (!seenCommands.has(commandSignature)) {
                                     seenCommands.add(commandSignature);
                                     uniqueCommands.push(cmd);
@@ -157,7 +165,7 @@ module.exports = {
 
                             for (const cmd of uniqueCommands) {
                                 // Komutsa direkt çalıştır, öneri ise sadece metin olarak kalır
-                                if (cmd.type === 'KOMUT') {
+                                if (cmd.isCommand || cmd.isCommand === undefined && cmd.type === 'KOMUT') {
                                     const commandResult = await aiService.executeCommand(cmd, message, message.client);
 
                                     // --- FEEDBACK LOOP ---
@@ -210,31 +218,32 @@ module.exports = {
             if (!hasPermission) {
                 const contentLower = content.toLowerCase();
                 const detectedWords = bannedWords.filter(word => contentLower.includes(word.toLowerCase()));
-
                 if (detectedWords.length > 0) {
                     console.log(`[AI MODERATION] ⚠️ Küfür tespit edildi: ${detectedWords.join(', ')} (Kullanıcı: ${message.author.username})`);
 
                     // Mesajı sil
                     await message.delete().catch(() => { });
 
-                    // Uyarı sayısını artır
-                    const warningKey = `warning_${guildId}_${message.author.id}`;
-                    const currentWarnings = db.get(warningKey) || 0;
-                    db.set(warningKey, currentWarnings + 1);
+                    // Katmanlı Uyarı Sistemi
+                    const result = await modSystem.addWarning(
+                        message.guild,
+                        message.member,
+                        message.client.user,
+                        "Küfür/Argo Kullanımı",
+                        message.content
+                    );
 
                     // AI tarzında çeşitli uyarı mesajları
                     const warningMessages = [
-                        `🛡️ Hey ${message.author}, bu tarz kelimeleri kullanmamayı tercih ederim. Lütfen daha nazik olalım!`,
-                        `⚠️ ${message.author}, bu ifade pek hoş değil. Birbirimize saygılı olalım!`,
-                        `🤖 Hmm ${message.author}... Bu kelimeyi duymamış gibi davranayım mı? Lütfen daha kibar olalım.`,
-                        `💙 ${message.author}, ben de bazen sinirleniyorum ama kelimelere dikkat edelim!`,
-                        `🚫 ${message.author}, bu kelime benim hoşuma gitmedi. Daha güzel konuşabilir miyiz?`
+                        `🛡️ Hey ${message.author}, bu tarz kelimeler kullanmasak mı? (Toplam Uyarı: ${result.currentWarns})`,
+                        `⚠️ ${message.author}, seviyeyi koruyalım lütfen. (Toplam Uyarı: ${result.currentWarns})`,
+                        `🤖 ${message.author}, küfür filtresine takıldın. ${result.punishmentApplied ? `Ceza: **${result.punishment}**` : ''}`
                     ];
 
                     const randomWarning = warningMessages[Math.floor(Math.random() * warningMessages.length)];
 
-                    message.channel.send(`${randomWarning}\n*(Toplam uyarı: ${currentWarnings + 1})*`).then(msg => {
-                        setTimeout(() => msg.delete().catch(() => { }), 5000);
+                    message.channel.send(`${randomWarning}`).then(msg => {
+                        setTimeout(() => msg.delete().catch(() => { }), 6000);
                     }).catch(() => { });
 
                     return;
@@ -251,8 +260,17 @@ module.exports = {
                 for (const link of bannedLinks) {
                     if (content.includes(link)) {
                         message.delete().catch(() => { });
-                        message.channel.send(`${message.author}, bu sunucuda reklam atamazsın!`).then(msg => {
-                            setTimeout(() => msg.delete().catch(() => { }), 2000);
+
+                        const result = await modSystem.addWarning(
+                            message.guild,
+                            message.member,
+                            message.client.user,
+                            "Link/Reklam Paylaşımı",
+                            message.content
+                        );
+
+                        message.channel.send(`🚫 ${message.author}, bu sunucuda reklam yapamazsın! (Uyarı: ${result.currentWarns}) ${result.punishmentApplied ? `\nCeza: **${result.punishment}**` : ''}`).then(msg => {
+                            setTimeout(() => msg.delete().catch(() => { }), 5000);
                         }).catch(() => { });
                         return;
                     }

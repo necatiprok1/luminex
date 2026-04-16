@@ -59,8 +59,41 @@
 
                         <div class="setting-row">
                             <div class="setting-info">
-                                <h4>Küfür Engel Modülü</h4>
-                                <p>Yapay zeka akıllı küfür filtresini açar/kapatır.</p>
+                                <h4>Proaktif Analiz (Reflection)</h4>
+                                <p>Botun sunucu durumunu analiz edip sohbet başlatması.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" name="proactiveMod" <%=settings.proactiveMod ? 'checked' : '' %>>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h4>Seviye & XP Sistemi</h4>
+                                <p>Üyelerin sohbette XP kazanmasını kontrol eder.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" name="levelMod" <%=settings.levelMod ? 'checked' : '' %>>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h4>Log Sistemi Koruma</h4>
+                                <p>Sunucu olaylarının log kanalına gönderilmesi.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" name="logMod" <%=settings.logMod ? 'checked' : '' %>>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <h4>Küfür Engel</h4>
+                                <p>Akıllı küfür filtresini açar/kapatır.</p>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" name="kufurEngel" <%=settings.kufurEngel ? 'checked' : '' %>>
@@ -70,8 +103,8 @@
 
                         <div class="setting-row">
                             <div class="setting-info">
-                                <h4>Reklam Engel Modülü</h4>
-                                <p>Reklam ve link korumasını aktif eder.</p>
+                                <h4>Reklam Engel</h4>
+                                <p>Link ve reklam korumasını aktif eder.</p>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" name="reklamEngel" <%=settings.reklamEngel ? 'checked' : '' %>>
@@ -82,7 +115,7 @@
                         <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
                             <div class="setting-info">
                                 <h4>Otomatik Rol (Otorol)</h4>
-                                <p>Yeni katılan kullanıcılara verilecek rolü seçin.</p>
+                                <p>Yeni katılan kullanıcılara verilecek rol.</p>
                             </div>
                             <select name="otorol" class="select-box" style="width: 100%;">
                                 <option value="none">--- Rol Seçin ---</option>
@@ -94,11 +127,10 @@
                             </select>
                         </div>
 
-                        <div class="setting-row"
-                            style="flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: none;">
+                        <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
                             <div class="setting-info">
                                 <h4>Hoşgeldin Mesaj Kanalı</h4>
-                                <p>Giriş-çıkış mesajlarının atılacağı kanalı seçin.</p>
+                                <p>Giriş-çıkış mesajlarının kanalı.</p>
                             </div>
                             <select name="welcomeChannel" class="select-box" style="width: 100%;">
                                 <option value="none">--- Kanal Seçin ---</option>
@@ -110,36 +142,114 @@
                             </select>
                         </div>
 
+                        <div class="setting-row"
+                            style="flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: none;">
+                            <div class="setting-info">
+                                <h4>Log Kayıt Kanalı</h4>
+                                <p>Tüm logların atılacağı kanal.</p>
+                            </div>
+                            <select name="logChannel" class="select-box" style="width: 100%;">
+                                <option value="none">--- Kanal Seçin ---</option>
+                                <% textChannels.forEach(chan=> { %>
+                                    <option value="<%= chan.id %>" <%=settings.logKanalId===chan.id ? 'selected' : '' %>
+                                        ># <%= chan.name %>
+                                    </option>
+                                    <% }); %>
+                            </select>
+                        </div>
+
                         <button type="submit" class="btn-save">Değişiklikleri Kaydet</button>
                     </form>
                 </div>
 
-                <!-- İstatistikler -->
-                <div class="settings-card" style="background: rgba(0,0,0,0.15);">
-                    <h2><i class="fas fa-chart-pie"></i> Aktivite İstatistikleri</h2>
-                    <% if(topChannels.length> 0) { %>
-                        <div class="chart-mock">
-                            <% topChannels.forEach((chan, index)=> { %>
-                                <div class="bar-item">
-                                    <span class="bar-label">#<%= chan.name %></span>
-                                    <div class="bar-container">
-                                        <% const percentage=topChannels[0].count> 0 ? Math.round((chan.count /
-                                            topChannels[0].count) * 100) : 0; %>
-                                            <div class="bar-fill" style="width: <%= percentage %>%;"></div>
+                <!-- Detaylı İstatistikler -->
+                <div class="data-section" style="display: flex; flex-direction: column; gap: 30px;">
+                    <!-- Moderasyon Günlükleri -->
+                    <div class="settings-card" style="background: rgba(237, 66, 69, 0.05);">
+                        <h2><i class="fas fa-shield-alt"></i> Moderasyon Günlüğü</h2>
+                        <% if(modLogs && modLogs.length> 0) { %>
+                            <div class="log-list">
+                                <% modLogs.forEach(log=> { %>
+                                    <div class="log-item"
+                                        style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
+                                        <div style="display: flex; justify-content: space-between;">
+                                            <span class="badge"
+                                                style="background: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">
+                                                <%= log.action %>
+                                            </span>
+                                            <span class="text-muted" style="font-size: 0.7rem;">
+                                                <%= new Date(log.timestamp).toLocaleString('tr-TR') %>
+                                            </span>
+                                        </div>
+                                        <div style="margin-top: 5px;">
+                                            <strong>Moderatör:</strong>
+                                            <%= log.moderatorTag %> <br>
+                                                <% if(log.targetTag) { %> <strong>Hedef:</strong>
+                                                    <%= log.targetTag %> <br>
+                                                        <% } %>
+                                                            <% if(log.reason) { %> <strong>Sebep:</strong>
+                                                                <%= log.reason %> <br>
+                                                                    <% } %>
+                                                                        <% if(log.content) { %> <em
+                                                                                style="color: var(--text-muted);">"<%=
+                                                                                    log.content %>"</em>
+                                                                            <% } %>
+                                        </div>
                                     </div>
-                                    <span class="bar-value">
-                                        <%= chan.count %> MSJ
-                                    </span>
-                                </div>
-                                <% }); %>
-                        </div>
-                        <% } else { %>
-                            <div class="empty-state"
-                                style="text-align: center; padding: 40px; color: var(--text-muted);">
-                                <i class="fas fa-database" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                                <p>Yeterli veri yok.</p>
+                                    <% }); %>
                             </div>
-                            <% } %>
+                            <% } else { %>
+                                <p class="text-muted">Henüz moderasyon kaydı yok.</p>
+                                <% } %>
+                    </div>
+
+                    <!-- Seviye Liderleri -->
+                    <div class="settings-card" style="background: rgba(88, 101, 242, 0.05);">
+                        <h2><i class="fas fa-trophy"></i> En Aktif Üyeler (XP)</h2>
+                        <% if(leaderboard && leaderboard.length> 0) { %>
+                            <div class="leaderboard-list">
+                                <% leaderboard.forEach((user, index)=> { %>
+                                    <div class="leader-item"
+                                        style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                        <span><strong>#<%= index + 1 %></strong>
+                                            <%= user.username %>
+                                        </span>
+                                        <span class="text-muted">
+                                            <%= user.totalXP.toLocaleString() %> XP
+                                        </span>
+                                    </div>
+                                    <% }); %>
+                            </div>
+                            <% } else { %>
+                                <p class="text-muted">Veri yok.</p>
+                                <% } %>
+                    </div>
+
+                    <!-- Aktivite Grafiği -->
+                    <div class="settings-card" style="background: rgba(0,0,0,0.15);">
+                        <h2><i class="fas fa-chart-pie"></i> Kanal Aktivitesi</h2>
+                        <% if(topChannels && topChannels.length> 0) { %>
+                            <div class="chart-mock">
+                                <% topChannels.forEach((chan, index)=> { %>
+                                    <div class="bar-item">
+                                        <span class="bar-label">#<%= chan.name %></span>
+                                        <div class="bar-container">
+                                            <% const percentage=topChannels[0].count> 0 ? Math.round((chan.count /
+                                                topChannels[0].count) * 100) : 0; %>
+                                                <div class="bar-fill"
+                                                    style="--bar-width: <%= percentage %>%; width: var(--bar-width);">
+                                                </div>
+                                        </div>
+                                        <span class="bar-value">
+                                            <%= chan.count %> MSJ
+                                        </span>
+                                    </div>
+                                    <% }); %>
+                            </div>
+                            <% } else { %>
+                                <p class="text-muted">Veri yok.</p>
+                                <% } %>
+                    </div>
                 </div>
             </div>
         </div>
@@ -148,8 +258,6 @@
     <div class="bg-animations">
         <div class="glow-orb orb-1"></div>
         <div class="glow-orb orb-2"></div>
-        <div class="glow-orb orb-3" style="background: #9b59b6; width: 300px; height: 300px; bottom: 40%; right: 20%;">
-        </div>
     </div>
 </body>
 

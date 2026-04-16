@@ -47,10 +47,16 @@ console.log(chalk.green('[ENV] ✅ Çevresel değişkenler doğrulandı'));
 // 🗄️ MONGODB CONNECTION
 // ══════════════════════════════════════
 if (process.env.MONGO_URI) {
-    mongoose.connect(process.env.MONGO_URI).then(() => {
+    const mongoOptions = {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+    };
+
+    mongoose.connect(process.env.MONGO_URI, mongoOptions).then(() => {
         console.log(chalk.green('[DATABASE] ✅ MongoDB veritabanına başarıyla bağlanıldı.'));
     }).catch((err) => {
-        console.error(chalk.red('[DATABASE] ❌ MongoDB bağlantı hatası: '), err);
+        console.error(chalk.red('[DATABASE] ❌ MongoDB bağlantı hatası: '), err.message);
+        console.log(chalk.yellow('[DATABASE] ⚠️ MongoDB başarısız, croxydb yedek olarak devrede.'));
     });
 } else {
     console.log(chalk.yellow('[DATABASE] ⚠️ MONGO_URI ayarlanmamış, mevcut veritabanı(croxydb) ile devam ediliyor.'));

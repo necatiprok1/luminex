@@ -54,11 +54,25 @@ const mediaSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now, expires: 86400 }
 });
 
+// Moderasyon Log Şeması
+const modLogSchema = new mongoose.Schema({
+    guildId: { type: String, required: true },
+    action: { type: String, required: true },
+    moderatorId: { type: String },
+    moderatorTag: { type: String },
+    targetId: { type: String },
+    targetTag: { type: String },
+    reason: { type: String },
+    content: { type: String },
+    timestamp: { type: Date, default: Date.now, expires: 2592000 } // 30 gün
+});
+
 module.exports = {
     Conversation: mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema),
     Fact: mongoose.models.Fact || mongoose.model('Fact', factSchema),
     Stat: mongoose.models.Stat || mongoose.model('Stat', statSchema),
     Feedback: mongoose.models.Feedback || mongoose.model('Feedback', feedbackSchema),
     Activity: mongoose.models.Activity || mongoose.model('Activity', activitySchema),
-    Media: mongoose.models.Media || mongoose.model('Media', mediaSchema)
+    Media: mongoose.models.Media || mongoose.model('Media', mediaSchema),
+    ModLog: mongoose.models.ModLog || mongoose.model('ModLog', modLogSchema)
 };

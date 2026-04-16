@@ -4,101 +4,610 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        <%= bot.username %> | Dashboard
-    </title>
+    <title>Luminex AI | Türkiye'nin En Gelişmiş Discord Botu</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --dark-xl: #1e293b;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--dark);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: linear-gradient(135deg, var(--dark) 0%, #1a1a2e 100%);
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.2) 0%, transparent 70%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .hero-content {
+            text-align: center;
+            z-index: 10;
+            padding: 2rem;
+            max-width: 1200px;
+        }
+
+        .hero-logo {
+            width: 150px;
+            height: 150px;
+            border-radius: 30px;
+            margin-bottom: 2rem;
+            animation: float 3s ease-in-out infinite;
+            box-shadow: 0 20px 60px rgba(99, 102, 241, 0.4);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 50%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .tagline {
+            font-size: 1.5rem;
+            color: #94a3b8;
+            margin-bottom: 2rem;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin: 3rem 0;
+            flex-wrap: wrap;
+        }
+
+        .hero-stat {
+            text-align: center;
+            padding: 1.5rem 2rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-stat i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .hero-stat .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .hero-stat .label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 5rem 2rem;
+            background: var(--dark-xl);
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-title p {
+            color: #94a3b8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-card i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* Commands Section */
+        .commands {
+            padding: 5rem 2rem;
+            background: var(--dark);
+        }
+
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .command-category {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+
+        .command-category h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+        }
+
+        .command-category h3 i {
+            color: var(--primary);
+        }
+
+        .command-list {
+            list-style: none;
+        }
+
+        .command-list li {
+            padding: 0.75rem;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.2s ease;
+        }
+
+        .command-list li:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .command-list .cmd-name {
+            font-family: 'Courier New', monospace;
+            background: var(--primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .command-list .cmd-desc {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        /* AI Section */
+        .ai-section {
+            padding: 5rem 2rem;
+            background: linear-gradient(135deg, var(--dark-xl) 0%, #1e1e30 100%);
+        }
+
+        .ai-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .ai-feature {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .ai-feature i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--success), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 5rem 2rem;
+            text-align: center;
+            background: var(--dark-xl);
+        }
+
+        .cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta p {
+            color: #94a3b8;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(99, 102, 241, 0.5);
+        }
+
+        /* Footer */
+        footer {
+            padding: 2rem;
+            text-align: center;
+            background: var(--dark);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        footer p {
+            color: #64748b;
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* Dashboard Button */
+        .dashboard-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            text-decoration: none;
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .dashboard-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero-stats {
+                gap: 1rem;
+            }
+            
+            .hero-stat {
+                padding: 1rem;
+            }
+            
+            .hero-stat .value {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <aside class="sidebar">
-        <div class="sidebar-logo">
-            <img src="<%= bot.displayAvatarURL() %>" alt="Luminex">
-            <span>Luminex</span>
-        </div>
-        <ul class="sidebar-menu">
-            <li><a href="/" class="active"><i class="fas fa-th-large"></i> <span>Genel Bakış</span></a></li>
-            <li><a href="/servers"><i class="fas fa-server"></i> <span>Sunucular</span></a></li>
-            <li><a href="https://github.com/necatiprok1/luminex" target="_blank"><i class="fab fa-github"></i>
-                    <span>GitHub</span></a></li>
-        </ul>
-        <div class="sidebar-footer">
-            <div class="status-indicator">
-                <div class="indicator-dot <%= system.botStatus %>"></div>
-                <span>Durum: <%= system.botStatus.toUpperCase() %></span>
-            </div>
-        </div>
-    </aside>
-
-    <main class="main-content">
-        <section class="glass-box">
-            <h1>Hoş Geldin, <%= bot.username %>
-            </h1>
-            <p class="subtitle">Luminex'in mevcut durumu ve genel istatistikleri aşağıdadır.</p>
-
-            <div class="stats-container">
-                <div class="stat-card">
-                    <i class="fas fa-layer-group"></i>
-                    <div class="stat-value">
-                        <%= stats.servers %>
-                    </div>
-                    <div class="stat-label">Toplam Sunucu</div>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <img src="https://cdn.discordapp.com/avatars/1246883721429528606/a_0915be73e2f887158136917e7c90a35c.gif?size=512" alt="Luminex AI" class="hero-logo">
+            <h1>LUMINEX AI</h1>
+            <p class="tagline">Türkiye'nin En Gelişmiş Yapay Zeka Discord Botu</p>
+            
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <i class="fas fa-server"></i>
+                    <div class="value"><%= stats.guilds %></div>
+                    <div class="label">Sunucu</div>
                 </div>
-                <div class="stat-card">
-                    <i class="fas fa-user-friends"></i>
-                    <div class="stat-value">
-                        <%= stats.users.toLocaleString() %>
-                    </div>
-                    <div class="stat-label">Toplam Kullanıcı</div>
+                <div class="hero-stat">
+                    <i class="fas fa-users"></i>
+                    <div class="value"><%= stats.users %></div>
+                    <div class="label">Kullanıcı</div>
                 </div>
-                <div class="stat-card">
+                <div class="hero-stat">
                     <i class="fas fa-brain"></i>
-                    <div class="stat-value">
-                        <%= stats.aiMsgCount.toLocaleString() %>
-                    </div>
-                    <div class="stat-label">AI Etkileşimi</div>
+                    <div class="value"><%= stats.aiMsgCount %></div>
+                    <div class="label">AI Etkileşim</div>
+                </div>
+                <div class="hero-stat">
+                    <i class="fas fa-terminal"></i>
+                    <div class="value"><%= stats.commands %></div>
+                    <div class="label">Komut</div>
                 </div>
             </div>
 
-            <div class="monitor-section">
-                <h2>Sistem Durumu</h2>
-                <div class="monitor-grid">
-                    <div class="monitor-item">
-                        <div class="monitor-name"><i class="fas fa-clock"></i> Çalışma Süresi</div>
-                        <div class="monitor-value">
-                            <%= system.uptime %>
-                        </div>
-                    </div>
-                    <div class="monitor-item">
-                        <div class="monitor-name"><i class="fas fa-memory"></i> RAM Kullanımı</div>
-                        <div class="monitor-value">
-                            <%= system.memory %>
-                        </div>
-                    </div>
-                    <div class="monitor-item">
-                        <div class="monitor-name"><i class="fab fa-node-js"></i> Node Sürümü</div>
-                        <div class="monitor-value">
-                            <%= system.nodeVersion %>
-                        </div>
-                    </div>
-                    <div class="monitor-item">
-                        <div class="monitor-name"><i class="fas fa-microchip"></i> İşlemci Çekirdeği</div>
-                        <div class="monitor-value">
-                            <%= system.cpuCount %> Çekirdek
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
+            <a href="/servers" class="btn btn-primary">
+                <i class="fas fa-rocket"></i>
+                Hemen Kullanmaya Başla
+            </a>
+        </div>
+    </section>
 
-    <div class="bg-animations">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
-    </div>
+    <!-- Features Section -->
+    <section class="features">
+        <div class="section-title">
+            <h2><i class="fas fa-star"></i> Özelliklerimiz</h2>
+            <p>Luminex AI ile sunucunuzu yönetmenin tadını çıkarın</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <i class="fas fa-shield-alt"></i>
+                <h3>🛡️ Gelişmiş Moderasyon</h3>
+                <p>Otomatik küfür ve reklam engeli, ban, kick, timeout, uyarı sistemi ve daha fazlası.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-robot"></i>
+                <h3>🤖 Yapay Zeka Sohbet</h3>
+                <p>Kendi özgün AI'mız ile akıllı, Türkçe konuşan ve yardımsever bir asistan.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-gift"></i>
+                <h3>🎉 Çekiliş Sistemi</h3>
+                <p>Gelişmiş çekiliş sistemi ile kullanıcılarını ödüllendir.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-ticket-alt"></i>
+                <h3>🎫 Ticket Sistemi</h3>
+                <p>Profesyonel destek ticket sistemi ile kullanıcılarından gelen talepleri yönet.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-chart-line"></i>
+                <h3>📈 Seviye Sistemi</h3>
+                <p>XP ve seviye atlayarak roller kazan. Liderlik tablosunda zirveye çık.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-users-cog"></i>
+                <h3>⚙️ Otomasyon</h3>
+                <p>Otorol, hoş geldin mesajları, otomatik log ve daha birçok otomasyon özellikleri.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Section -->
+    <section class="commands">
+        <div class="section-title">
+            <h2><i class="fas fa-terminal"></i> Komutlarım</h2>
+            <p>Tüm komutları keşfet ve sunucunu yönet</p>
+        </div>
+
+        <div class="commands-grid">
+            <!-- Moderation -->
+            <div class="command-category">
+                <h3><i class="fas fa-gavel"></i> Moderasyon</h3>
+                <ul class="command-list">
+                    <li><span class="cmd-name">/ban</span><span class="cmd-desc">Kullanıcıyı yasakla</span></li>
+                    <li><span class="cmd-name">/kick</span><span class="cmd-desc">Kullanıcıyı at</span></li>
+                    <li><span class="cmd-name">/timeout</span><span class="cmd-desc">Kullanıcıyı sustur</span></li>
+                    <li><span class="cmd-name">/uyar</span><span class="cmd-desc">Kullanıcıyı uyar</span></li>
+                    <li><span class="cmd-name">/sil</span><span class="cmd-desc">Mesajları sil</span></li>
+                    <li><span class="cmd-name">/nuke</span><span class="cmd-desc">Kanalı temizle</span></li>
+                    <li><span class="cmd-name">/küfür-engel</span><span class="cmd-desc">Küfür engelini aç/kapat</span></li>
+                    <li><span class="cmd-name">/reklam-engel</span><span class="cmd-desc">Reklam engelini aç/kapat</span></li>
+                </ul>
+            </div>
+
+            <!-- Eğlence -->
+            <div class="command-category">
+                <h3><i class="fas fa-gamepad"></i> Eğlence</h3>
+                <ul class="command-list">
+                    <li><span class="cmd-name">/espri</span><span class="cmd-desc">Rastgele espri yap</span></li>
+                    <li><span class="cmd-name">/fıkra</span><span class="cmd-desc">Komik fıkra anlat</span></li>
+                    <li><span class="cmd-name">/zar</span><span class="cmd-desc">Zar at</span></li>
+                    <li><span class="cmd-name">/yazı-tura</span><span class="cmd-desc">Yazı tura at</span></li>
+                    <li><span class="cmd-name">/taş-kağıt-makas</span><span class="cmd-desc">Oyna</span></li>
+                    <li><span class="cmd-name">/çekiliş-başlat</span><span class="cmd-desc">Çekiliş düzenle</span></li>
+                    <li><span class="cmd-name">/oylama</span><span class="cmd-desc">Oylama oluştur</span></li>
+                    <li><span class="cmd-name">/ascii</span><span class="cmd-desc">ASCII sanat oluştur</span></li>
+                </ul>
+            </div>
+
+            <!-- Kullanıcı -->
+            <div class="command-category">
+                <h3><i class="fas fa-user"></i> Kullanıcı</h3>
+                <ul class="command-list">
+                    <li><span class="cmd-name">/profil</span><span class="cmd-desc">Profilini görüntüle</span></li>
+                    <li><span class="cmd-name">/avatar</span><span class="cmd-desc">Avatarını büyüt</span></li>
+                    <li><span class="cmd-name">/sunucu-bilgi</span><span class="cmd-desc">Sunucu bilgisi</span></li>
+                    <li><span class="cmd-name">/seviye</span><span class="cmd-desc">Seviyeni gör</span></li>
+                    <li><span class="cmd-name">/sıralama</span><span class="cmd-desc">Liderlik tablosu</span></li>
+                    <li><span class="cmd-name">/afk</span><span class="cmd-desc">AFK moduna geç</span></li>
+                    <li><span class="cmd-name">/çeviri</span><span class="cmd-desc">Çeviri yap</span></li>
+                </ul>
+            </div>
+
+            <!-- Bot -->
+            <div class="command-category">
+                <h3><i class="fas fa-robot"></i> Bot</h3>
+                <ul class="command-list">
+                    <li><span class="cmd-name">/ping</span><span class="cmd-desc">Bot gecikmesi</span></li>
+                    <li><span class="cmd-name">/yardım</span><span class="cmd-desc">Yardım menüsü</span></li>
+                    <li><span class="cmd-name">/istatistik</span><span class="cmd-desc">Bot istatistikleri</span></li>
+                    <li><span class="cmd-name">/davet</span><span class="cmd-desc">Davet linki al</span></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Section -->
+    <section class="ai-section">
+        <div class="section-title">
+            <h2><i class="fas fa-brain"></i> Yapay Zeka Özellikleri</h2>
+            <p>Kendi özgün AI'mız ile tanışın</p>
+        </div>
+
+        <div class="ai-features">
+            <div class="ai-feature">
+                <i class="fas fa-comments"></i>
+                <h3>Akıllı Sohbet</h3>
+                <p>Doğal Türkçe konuşan, sorularınızı yanıtlayan yapay zeka asistanı</p>
+            </div>
+            <div class="ai-feature">
+                <i class="fas fa-image"></i>
+                <h3>Görsel Analiz</h3>
+                <p>Resimleri analiz edip açıklama yapabilen vizyon özelliği</p>
+            </div>
+            <div class="ai-feature">
+                <i class="fas fa-memory"></i>
+                <h3>Öğrenen Hafıza</h3>
+                <p>Konuşmaları hatırlayan ve kişiselleştirilmiş yanıtlar veren sistem</p>
+            </div>
+            <div class="ai-feature">
+                <i class="fas fa-shield-virus"></i>
+                <h3>Güvenli & Kontrolü</h3>
+                <p>Temiz ve güvenli yapay zeka deneyimi için gelişmiş filtrasyon</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <h2>Luminex AI'yı Sunucuna Ekle</h2>
+        <p>Hemen Discord sunucuna ekle ve farkı hisset!</p>
+        <a href="https://discord.com/oauth2/authorize?client_id=1246883721429528606&permissions=8&scope=bot" target="_blank" class="btn btn-primary">
+            <i class="fab fa-discord"></i>
+            Discord'a Ekle
+        </a>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2024 Luminex AI - Tüm hakları saklıdır</p>
+        <p>Geliştirici: <a href="#">necati9880</a> | Kurucu: <a href="#">luminexcode</a></p>
+    </footer>
+
+    <!-- Dashboard Button -->
+    <a href="/servers" class="dashboard-btn">
+        <i class="fas fa-cog"></i>
+    </a>
 </body>
 
 </html>
