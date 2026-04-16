@@ -19,12 +19,30 @@
             <img src="<%= bot.displayAvatarURL() %>" alt="Luminex">
             <span>Luminex</span>
         </div>
+        
+        <!-- User Info -->
+        <div class="user-info">
+            <img src="<%= user.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png' %>" alt="Avatar" class="user-avatar">
+            <div class="user-details">
+                <span class="user-name"><%= user.username %></span>
+                <span class="user-status">Çevrimiçi</span>
+            </div>
+        </div>
+        
         <ul class="sidebar-menu">
-            <li><a href="/"><i class="fas fa-th-large"></i> <span>Genel Bakış</span></a></li>
+            <li><a href="/dashboard"><i class="fas fa-th-large"></i> <span>Genel Bakış</span></a></li>
             <li><a href="/servers" class="active"><i class="fas fa-server"></i> <span>Sunucular</span></a></li>
             <li><a href="https://github.com/necatiprok1/luminex" target="_blank"><i class="fab fa-github"></i>
                     <span>GitHub</span></a></li>
         </ul>
+        
+        <!-- Logout Button -->
+        <div class="sidebar-footer">
+            <a href="/auth/logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Çıkış Yap</span>
+            </a>
+        </div>
     </aside>
 
     <main class="main-content">

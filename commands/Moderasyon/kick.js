@@ -23,7 +23,7 @@ module.exports = {
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Üyeleri Atma yetkiniz bulunmuyor.`)
                 .setFooter({ text: "Moderasyon Sistemi" })
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const user = interaction.options.getMember('kullanıcı');
@@ -34,7 +34,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Kullanıcı Bulunamadı!**\n\nLütfen geçerli bir kullanıcı etiketleyin.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noUserEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noUserEmbed], flags: 64 });
         }
 
         try {
@@ -50,7 +50,7 @@ ${emojis.static.shield} Bu kullanıcının **Atma Yetkisi** olduğu için atamad
 ${emojis.decorations.bullet} Yönetici yetkisi gerekiyor.
                     `)
                     .setTimestamp();
-                return interaction.reply({ embeds: [samePermEmbed], ephemeral: true });
+                return interaction.reply({ embeds: [samePermEmbed], flags: 64 });
             }
 
             await user.kick(sebep);
@@ -82,7 +82,7 @@ ${emojis.decorations.starLine}
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Hata!**\n\nBotun yetkisi yetersiz.\n\n\`\`\`${error.message}\`\`\``)
                 .setTimestamp();
-            interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

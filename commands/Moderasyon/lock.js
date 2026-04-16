@@ -51,7 +51,7 @@ ${emojis.decorations.starLine}
                 description: `${emojis.error} **Hata!**\n\nKanal kilitlenirken bir hata oluştu.\n\n\`\`\`${error.message}\`\`\``,
                 timestamp: new Date().toISOString()
             };
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

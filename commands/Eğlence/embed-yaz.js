@@ -53,13 +53,13 @@ ${emojis.decorations.starLine}
                 .setDescription(`${emojis.success} **Embed Gönderildi!**\n\n${emojis.static.channel} Kanal: ${kanal}`)
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [successEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [successEmbed], flags: 64 });
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Hata!**\n\nEmbed gönderilemedi. Geçerli bir renk kodu girdiğinizden emin olun.\n\n${emojis.static.info} Örnek: \`#5865F2\``)
                 .setTimestamp();
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

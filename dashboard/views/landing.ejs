@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luminex Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        nav {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-brand {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-login {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            padding: 10px 24px !important;
+        }
+        
+        .btn-login:hover {
+            background: #f0f0f0 !important;
+        }
+        
+        .container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .content {
+            text-align: center;
+            color: white;
+            max-width: 800px;
+        }
+        
+        .logo {
+            font-size: 120px;
+            margin-bottom: 30px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-size: 20px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+        
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+            max-width: 1000px;
+        }
+        
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .feature h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .feature p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">🎮 Luminex</div>
+        <div class="nav-links">
+            <% if (isAuthenticated) { %>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/auth/logout">Çıkış Yap</a>
+                <span style="color: white;"><%= user.username %></span>
+            <% } else { %>
+                <a href="/auth/login" class="btn btn-login">Discord ile Giriş Yap</a>
+            <% } %>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="content">
+            <div class="logo">🤖</div>
+            <h1>Luminex AI Bot</h1>
+            <p class="subtitle">Discord Sunucunuzu Yönetin & AI ile Sohbet Edin</p>
+            
+            <div class="cta-buttons">
+                <% if (isAuthenticated) { %>
+                    <a href="/dashboard" class="btn btn-primary">📊 Dashboard'a Git</a>
+                <% } else { %>
+                    <a href="/auth/login" class="btn btn-primary">🔐 Oturum Aç</a>
+                <% } %>
+                <a href="https://discord.gg/luminex" class="btn btn-secondary" style="display: none;">💬 Discord Sunucusu</a>
+            </div>
+            
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">🧠</div>
+                    <h3>AI Sohbet</h3>
+                    <p>Gelişmiş yapay zeka ile sunucunuzda sohbet edin ve yardım alın</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Moderasyon</h3>
+                    <p>Güçlü araçlarla sunucunuzu yönetin ve koruyun</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📊</div>
+                    <h3>İstatistikler</h3>
+                    <p>Detaylı analiتikler ve raporlarla sunucu aktivitesini izleyin</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>Ayarlar</h3>
+                    <p>Seçenekleri özelleştirerek bota tam kontrol sağlayın</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>© 2026 Luminex AI Bot. Tüm Hakları Saklıdır.</p>
+        <% if (isAuthenticated) { %>
+            <p>Oturum Açan: <strong><%= user.username %></strong></p>
+        <% } %>
+    </footer>
+</body>
+</html>

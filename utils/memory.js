@@ -1,4 +1,4 @@
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 const mongoose = require('mongoose');
 const { Conversation, Fact, Stat, Feedback, Activity, Media } = require('../models/GuildMemory');
 
@@ -20,10 +20,10 @@ async function logConversation(guildId, userId, username, userMessage, aiRespons
         } catch (err) { console.error('MongoDB logConversation Error:', err); }
     } else {
         const key = `memory_conversations_${guildId}`;
-        let history = db.fetch(key) || [];
+        let history = (await db.fetch(key)) || [];
         history.push({ userId, username, userMessage, aiResponse, timestamp: Date.now() });
         if (history.length > MAX_CONVERSATION_HISTORY) history = history.slice(-MAX_CONVERSATION_HISTORY);
-        db.set(key, history);
+        await db.set(key, history);
     }
 }
 
@@ -39,10 +39,10 @@ async function logFact(guildId, topic, info, source = 'System') {
         return false;
     } else {
         const key = `memory_facts_${guildId}`;
-        let facts = db.fetch(key) || [];
+        let facts = (await db.fetch(key)) || [];
         if (!facts.find(f => f.info === info)) {
             facts.push({ topic, info, source, timestamp: Date.now() });
-            db.set(key, facts);
+            await db.set(key, facts);
             return true;
         }
         return false;
@@ -77,8 +77,8 @@ async function searchMemory(guildId, query, limit = 5) {
             relatedFacts = facts.reverse().map(f => `[Bilgi - ${f.topic}] ${f.info}`);
         } catch (err) { console.error('MongoDB searchMemory Error:', err); }
     } else {
-        const conversations = db.fetch(`memory_conversations_${guildId}`) || [];
-        const facts = db.fetch(`memory_facts_${guildId}`) || [];
+        const conversations = (await db.fetch(`memory_conversations_${guildId}`)) || [];
+        const facts = (await db.fetch(`memory_facts_${guildId}`)) || [];
 
         relatedChats = conversations.filter(c => (c.userMessage && c.userMessage.toLowerCase().includes(queryLower)) || (c.aiResponse && c.aiResponse.toLowerCase().includes(queryLower))).slice(-limit).map(c => `[Sohbet] ${c.username}: ${c.userMessage} -> AI: ${c.aiResponse}`);
         relatedFacts = facts.filter(f => (f.topic && f.topic.toLowerCase().includes(queryLower)) || (f.info && f.info.toLowerCase().includes(queryLower))).slice(-limit).map(f => `[Bilgi - ${f.topic}] ${f.info}`);
@@ -94,7 +94,7 @@ async function getRecentContext(guildId, limit = 10) {
             return conversations.reverse().map(c => `${c.username}: ${c.userMessage}\nLuminex: ${c.aiResponse}`).join('\n\n');
         } catch (err) { console.error('MongoDB getRecentContext Error:', err); return ""; }
     } else {
-        const conversations = db.fetch(`memory_conversations_${guildId}`) || [];
+        const conversations = (await db.fetch(`memory_conversations_${guildId}`)) || [];
         return conversations.slice(-limit).map(c => `${c.username}: ${c.userMessage}\nLuminex: ${c.aiResponse}`).join('\n\n');
     }
 }
@@ -107,11 +107,11 @@ async function logStat(guildId, statType, value) {
         } catch (err) { console.error('MongoDB logStat Error:', err); return false; }
     } else {
         const key = `stats_${guildId}_${statType}`;
-        let stats = db.fetch(key) || [];
+        let stats = (await db.fetch(key)) || [];
         stats.push({ value, date: Date.now() });
         const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
         stats = stats.filter(s => s.date > oneDayAgo).slice(-50);
-        db.set(key, stats);
+        await db.set(key, stats);
         return true;
     }
 }
@@ -127,10 +127,10 @@ async function getTrends(guildId, statType) {
             return "➡️ Stabil";
         } catch (err) { console.error('MongoDB getTrends Error:', err); return "Bilinmiyor"; }
     } else {
-        const stats = db.fetch(`stats_${guildId}_${statType}`) || [];
+        const stats = (await db.fetch(`stats_${guildId}_${statType}`)) || [];
         if (stats.length < 2) return "Yeterli veri yok (Stabil)";
         const diff = stats[stats.length - 1].value - stats[0].value;
-        if (diff > 0) return "📈 Yükseliş Eğiliminde";
+        if (diff > 0) return "📈 Yükselme Eğiliminde";
         if (diff < 0) return "📉 Düşüş Eğiliminde";
         return "➡️ Stabil";
     }
@@ -143,10 +143,10 @@ async function logFeedback(guildId, proposalType, isAccepted) {
         } catch (err) { console.error('MongoDB logFeedback Error:', err); }
     } else {
         const key = `feedback_${guildId}`;
-        let feedback = db.fetch(key) || [];
+        let feedback = (await db.fetch(key)) || [];
         feedback.push({ type: proposalType, accepted: isAccepted, date: Date.now() });
         feedback = feedback.slice(-20);
-        db.set(key, feedback);
+        await db.set(key, feedback);
     }
 }
 
@@ -157,7 +157,7 @@ async function getAdaptiveProfile(guildId) {
             feedback = await Feedback.find({ guildId }).sort({ date: -1 }).limit(20);
         } catch (err) { console.error('MongoDB getAdaptiveProfile Error:', err); }
     } else {
-        feedback = db.fetch(`feedback_${guildId}`) || [];
+        feedback = (await db.fetch(`feedback_${guildId}`)) || [];
     }
 
     if (feedback.length === 0) return "Henüz yeterli adaptasyon verisi yok.";
@@ -180,14 +180,15 @@ async function logChannelActivity(guildId, channelId, channelName) {
         } catch (err) { console.error('MongoDB logChannelActivity Error:', err); }
     } else {
         const key = `activity_${guildId}_${channelId}_${hourKey}`;
-        db.add(key, 1);
-        db.set(`meta_channel_name_${channelId}`, channelName);
+        const current = (await db.fetch(key)) || 0;
+        await db.set(key, current + 1);
+        await db.set(`meta_channel_name_${channelId}`, channelName);
         const hourListKey = `activity_keys_${guildId}`;
-        const keys = db.fetch(hourListKey) || [];
+        const keys = (await db.fetch(hourListKey)) || [];
         if (!keys.includes(key)) {
             keys.push(key);
-            if (keys.length > 100) db.delete(keys.shift());
-            db.set(hourListKey, keys);
+            if (keys.length > 100) await db.delete(keys.shift());
+            await db.set(hourListKey, keys);
         }
     }
 }
@@ -235,10 +236,11 @@ async function logMediaActivity(guildId, channelId) {
         } catch (err) { console.error('MongoDB logMediaError:', err); }
     } else {
         const key = `vision_${guildId}_${channelId}_${dateKey}`;
-        db.add(key, 1);
+        const current = (await db.fetch(key)) || 0;
+        await db.set(key, current + 1);
         const listKey = `vision_channels_${guildId}_${dateKey}`;
-        let channels = db.fetch(listKey) || [];
-        if (!channels.includes(channelId)) { channels.push(channelId); db.set(listKey, channels); }
+        let channels = (await db.fetch(listKey)) || [];
+        if (!channels.includes(channelId)) { channels.push(channelId); await db.set(listKey, channels); }
     }
 }
 
@@ -252,11 +254,11 @@ async function getVisionTrends(guildId) {
         } catch (err) { console.error('MongoDB getVisionTrends Error:', err); }
         return "Bugün henüz görsel paylaşımı yok.";
     } else {
-        const channels = db.fetch(`vision_channels_${guildId}_${dateKey}`) || [];
+        const channels = (await db.fetch(`vision_channels_${guildId}_${dateKey}`)) || [];
         if (channels.length === 0) return "Görsel veri yok.";
         let maxCount = 0; let maxChannelId = null;
         for (const chanId of channels) {
-            const count = db.fetch(`vision_${guildId}_${chanId}_${dateKey}`) || 0;
+            const count = (await db.fetch(`vision_${guildId}_${chanId}_${dateKey}`)) || 0;
             if (count > maxCount) { maxCount = count; maxChannelId = chanId; }
         }
         if (maxChannelId) return `Bugün En Çok Görsel: <#${maxChannelId}> (${maxCount} medya)`;

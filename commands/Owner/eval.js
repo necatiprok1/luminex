@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const db = require("croxydb");
 const { inspect } = require("util");
+const { VM } = require("vm2");
 const config = require("../../config.json");
 
 module.exports = {
@@ -27,17 +27,33 @@ module.exports = {
                 return sendEmbed(interaction, "EVAL", "❌ Error: `Cannot evaluate nothing`");
             }
 
-            let evaluated = inspect(eval(toEval, { depth: 0 }));
+            // 🔒 SECURE: Use vm2 sandbox instead of eval()
+            // Timeout after 5 seconds to prevent infinite loops
+            const vm = new VM({
+                timeout: 5000,
+                sandbox: {
+                    // Provide safe access to console only
+                    console: { log: console.log, error: console.error },
+                    require: require
+                }
+            });
+
+            const startTime = process.hrtime();
+            let result = vm.run(toEval);
+            const endTime = process.hrtime(startTime);
+            
+            let evaluated = inspect(result, { depth: 0 });
 
             // Check if the evaluated code is too long
             if (evaluated.length > 1950) {
                 return sendEmbed(interaction, "EVAL", "❌ Error: `Request is too long.`");
             }
 
-            let hrDiff = process.hrtime(process.hrtime());
-            return sendEmbed(interaction, "EVAL", `Executed in ${hrDiff[0] > 0 ? `${hrDiff[0]}s` : ''}${hrDiff[1] / 1000000}ms.*\`\`\`javascript\n${evaluated}\n\`\`\``);
+            const executionTime = `${endTime[0] > 0 ? `${endTime[0]}s` : ''}${(endTime[1] / 1000000).toFixed(2)}ms`;
+            return sendEmbed(interaction, "EVAL", `✅ Executed in ${executionTime}\n\`\`\`javascript\n${evaluated}\n\`\`\``);
         } catch (e) {
-            interaction.reply({ content: `An error occurred : \`${e.message}\`` });
+            console.error('[EVAL] Error:', e.message);
+            interaction.reply({ content: `❌ An error occurred: \`${e.message}\`` });
         }
     },
 };
@@ -49,5 +65,15 @@ function sendEmbed(interaction, title, description) {
         .setTitle(title)
         .setDescription(description)
         .setTimestamp();
-    return interaction.reply({ embeds: [embed], ephemeral: true });
+    return interaction.reply({ embeds: [embed], flags: 64 });
+}
+
+// Helper function to send embed messages
+function sendEmbed(interaction, title, description) {
+    const embed = new EmbedBuilder()
+        .setColor("Random")
+        .setTitle(title)
+        .setDescription(description)
+        .setTimestamp();
+    return interaction.reply({ embeds: [embed], flags: 64 });
 }

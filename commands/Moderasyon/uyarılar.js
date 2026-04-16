@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,7 +16,7 @@ module.exports = {
         const guildId = interaction.guild.id;
 
         const warningKey = `warnings_${guildId}_${targetUser.id}`;
-        const warnings = db.fetch(warningKey) || [];
+        const warnings = await db.fetch(warningKey) || [];
 
         if (warnings.length === 0) {
             return interaction.reply({
@@ -25,7 +25,7 @@ module.exports = {
                         .setColor('#57F287')
                         .setDescription(`✅ ${targetUser} hiç uyarı almamış!`)
                 ],
-                ephemeral: true
+                flags: 64
             });
         }
 

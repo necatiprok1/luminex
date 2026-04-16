@@ -17,14 +17,14 @@ module.exports = {
         if (!supportRole?.id) {
             return interaction.reply({
                 content: "❌ Geçerli bir destek rolü seçin.",
-                ephemeral: true
+                flags: 64
             });
         }
         const result = await ticketSystem.createPanel(interaction, supportRole.id);
 
         await interaction.reply({
             content: result.message,
-            ephemeral: true
+            flags: 64
         });
     }
 };

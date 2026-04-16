@@ -14,13 +14,13 @@ module.exports = {
 
     run: async (client, interaction) => {
         const channel = interaction.options.getChannel("kanal");
-        const db = require("croxydb");
+        const db = require("../../utils/mongodb-helper");
 
         // Log kanalını ayarla
         logSystem.setLogChannel(interaction.guild.id, channel.id);
 
         // Log modülünü aktifleştir
-        db.set(`module_${interaction.guild.id}_log-sistemi`, true);
+        await db.set(`module_${interaction.guild.id}_log-sistemi`, true);
 
         const embed = new EmbedBuilder()
             .setColor('#57F287')

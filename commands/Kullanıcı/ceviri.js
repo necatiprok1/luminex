@@ -77,7 +77,7 @@ ${emojis.static.info} **Örnek Kodlar:**
                 `)
                 .setTimestamp();
 
-            interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

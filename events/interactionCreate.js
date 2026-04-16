@@ -1,5 +1,5 @@
 const { Events, InteractionType, EmbedBuilder, ChannelType, PermissionFlagsBits } = require("discord.js");
-const db = require("croxydb");
+const db = require("../utils/mongodb-helper");
 const cooldown = require("../utils/cooldown");
 const errorHandler = require("../utils/error-handler");
 
@@ -11,15 +11,30 @@ module.exports = {
         // ═══════════════════════════════════════
         // 🚧 BAKIM MODU
         // ═══════════════════════════════════════
-        if (db.fetch('bakım')) {
+        const bakimModu = await db.fetch('bakım');
+        if (bakimModu) {
             if (!['1145367633370288189', '988678929307033651'].includes(interaction.user.id)) {
                 const bakımmodu = new EmbedBuilder()
                     .setTitle('🚧 Botumuz Bakımda 🚧')
                     .setDescription('🔧 Herhangi bir sorununuz varsa <@1145367633370288189> ile iletişime geçiniz.')
                     .setColor('#FEE75C');
-                return interaction.reply({ embeds: [bakımmodu], ephemeral: true });
+                return interaction.reply({ embeds: [bakımmodu], flags: 64 });
             }
         }
+
+        // ═══════════════════════════════════════
+        // 📈 ANALİTİK: ETKİLEŞİM TAKİBİ
+        // ═══════════════════════════════════════
+        try {
+            if (interaction.guild) {
+                const analytics = require('../utils/analytics-system');
+                if (interaction.isCommand()) {
+                    analytics.trackCommand(interaction);
+                } else if (interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
+                    analytics.trackInteraction(interaction);
+                }
+            }
+        } catch {}
 
         // ═══════════════════════════════════════
         // 🎮 SLASH KOMUTLAR
@@ -28,13 +43,25 @@ module.exports = {
             if (interaction.user.bot) return;
 
             const command = client.slashcommands.get(interaction.commandName);
-            if (!command) return;
+            if (!command) {
+                console.error(`[COMMAND ERROR] Komut bulunamadı: ${interaction.commandName} | Kullanıcı: ${interaction.user.tag}`);
+                const notFoundEmbed = new EmbedBuilder()
+                    .setColor(0xED4245)
+                    .setTitle('❌ Komut Bulunamadı')
+                    .setDescription(`\`/${interaction.commandName}\` komutu sistemde kayıtlı değil.\n\n📖 Kullanılabilir komutları görmek için \`/yardım\` yazın.`);
+                try {
+                    return interaction.reply({ embeds: [notFoundEmbed], flags: 64 });
+                } catch (err) {
+                    console.error('[COMMAND ERROR] Komut bulunamadı hatası gönderilemedi:', err.message);
+                }
+                return;
+            }
 
             // ⏱️ Cooldown Kontrolü
             const remaining = cooldown.check(interaction.commandName, interaction.user.id);
             if (remaining !== null) {
                 const cooldownEmbed = cooldown.getCooldownEmbed(interaction.commandName, remaining);
-                return interaction.reply({ embeds: [cooldownEmbed], ephemeral: true });
+                return interaction.reply({ embeds: [cooldownEmbed], flags: 64 });
             }
 
             // 🛡️ Güvenli Çalıştırma
@@ -52,9 +79,11 @@ module.exports = {
             // 🎫 Ticket Sistemi
             const sendError = async (content) => {
                 try {
-                    if (interaction.deferred || interaction.replied) await interaction.followUp({ content, ephemeral: true });
-                    else await interaction.reply({ content, ephemeral: true });
-                } catch (_) {}
+                    if (interaction.deferred || interaction.replied) await interaction.followUp({ content, flags: 64 });
+                    else await interaction.reply({ content, flags: 64 });
+                } catch (err) {
+                    console.warn('[INTERACTION] ⚠️  Failed to send error message:', err.message);
+                }
             };
 
             if (customId === 'ticket_create') {
@@ -90,7 +119,7 @@ module.exports = {
                         if (interaction.deferred) {
                             await interaction.editReply({ content: '❌ Çekilişe katılırken bir hata oluştu.' }).catch(() => {});
                         } else {
-                            await interaction.reply({ content: '❌ Çekilişe katılırken bir hata oluştu.', ephemeral: true }).catch(() => {});
+                            await interaction.reply({ content: '❌ Çekilişe katılırken bir hata oluştu.', flags: 64 }).catch(() => {});
                         }
                     } catch (replyErr) {
                         console.error('[GIVEAWAY] Hata yanıtı bile gönderilemedi:', replyErr.message);
@@ -99,7 +128,7 @@ module.exports = {
                 return;
             }
             if (customId === 'giveaway_ended') {
-                return interaction.reply({ content: 'Bu çekiliş sona erdi.', ephemeral: true }).catch(() => {});
+                return interaction.reply({ content: 'Bu çekiliş sona erdi.', flags: 64 }).catch(() => {});
             }
 
             // ✊ Taş Kağıt Makas

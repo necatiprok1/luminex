@@ -1,4 +1,4 @@
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 const { ModLog } = require('../models/GuildMemory');
 const mongoose = require('mongoose');
 
@@ -15,8 +15,8 @@ class ModerationSystem {
 
         // 1. Uyarı Sayısını Artır
         const warningKey = `warncount_${guildId}_${userId}`;
-        const currentWarns = (db.get(warningKey) || 0) + 1;
-        db.set(warningKey, currentWarns);
+        const currentWarns = ((await db.fetch(warningKey)) || 0) + 1;
+        await db.set(warningKey, currentWarns);
 
         // 2. MongoDB'ye Kaydet (Sicil)
         if (mongoose.connection.readyState === 1) {
@@ -80,8 +80,8 @@ class ModerationSystem {
     /**
      * Uyarıları sıfırla
      */
-    static clearWarnings(guildId, userId) {
-        db.delete(`warncount_${guildId}_${userId}`);
+    static async clearWarnings(guildId, userId) {
+        await db.delete(`warncount_${guildId}_${userId}`);
     }
 }
 

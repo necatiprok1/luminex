@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 const config = require("../../config.json");
 const emojis = require("../../utils/emojis");
 
@@ -21,20 +21,21 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetkisiz Erişim!**\n\n${emojis.static.shield} Bu komutu sadece bot sahibi kullanabilir.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         if (status) {
-            if (db.fetch("bakım")) {
+            const bakimStatus = await db.fetch("bakım");
+            if (bakimStatus) {
                 const alreadyOnEmbed = new EmbedBuilder()
                     .setColor("#E67E22")
                     .setDescription(`${emojis.static.warning} **Bakım Zaten Açık!**\n\nBakım modu şu anda aktif durumda.`)
                     .setTimestamp();
-                return interaction.reply({ embeds: [alreadyOnEmbed], ephemeral: true });
+                return interaction.reply({ embeds: [alreadyOnEmbed], flags: 64 });
             }
 
             client.user.setActivity("🔧 Bakım modu aktif!");
-            db.set("bakım", true);
+            await db.set("bakım", true);
 
             const onEmbed = new EmbedBuilder()
                 .setColor("#57F287")
@@ -60,15 +61,16 @@ ${emojis.decorations.starLine}
 
             return interaction.reply({ embeds: [onEmbed] });
         } else {
-            if (!db.fetch("bakım")) {
+            const bakimStatus = await db.fetch("bakım");
+            if (!bakimStatus) {
                 const alreadyOffEmbed = new EmbedBuilder()
                     .setColor("#E67E22")
                     .setDescription(`${emojis.static.warning} **Bakım Zaten Kapalı!**\n\nBakım modu şu anda kapalı.`)
                     .setTimestamp();
-                return interaction.reply({ embeds: [alreadyOffEmbed], ephemeral: true });
+                return interaction.reply({ embeds: [alreadyOffEmbed], flags: 64 });
             }
 
-            db.delete("bakım");
+            await db.delete("bakım");
 
             const offEmbed = new EmbedBuilder()
                 .setColor("#ED4245")

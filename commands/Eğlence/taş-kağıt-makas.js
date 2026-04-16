@@ -30,7 +30,7 @@ module.exports = {
             if (balance < bet) {
                 return interaction.reply({
                     embeds: [new EmbedBuilder().setColor('#ED4245').setDescription(`❌ Yetersiz bakiye! (${balance} 💎)`)],
-                    ephemeral: true
+                    flags: 64
                 });
             }
         }

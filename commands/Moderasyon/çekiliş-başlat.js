@@ -50,7 +50,7 @@ module.exports = {
                         .setColor('#ED4245')
                         .setDescription('❌ Geçersiz süre! Örnekler: `30m`, `1h`, `2d`\nMinimum süre: 1 dakika')
                 ],
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -61,11 +61,11 @@ module.exports = {
                         .setColor('#ED4245')
                         .setDescription('❌ Maksimum süre 30 gündür!')
                 ],
-                ephemeral: true
+                flags: 64
             });
         }
 
-        await interaction.reply({ content: '🎉 Çekiliş oluşturuluyor...', ephemeral: true });
+        await interaction.reply({ content: '🎉 Çekiliş oluşturuluyor...', flags: 64 });
 
         const result = await giveawaySystem.create(interaction.channel, {
             prize,

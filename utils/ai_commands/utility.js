@@ -7,12 +7,26 @@ module.exports = {
 
         switch (command) {
             // --- KANALLAR ---
-            case 'kanal-olustur': {
+            case 'kanal-ekle':
+            case 'kanal-olustur':
+            case 'add-channel':
+            case 'create-channel': {
                 if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok.' };
                 const name = params[0] || 'yeni-kanal';
                 const type = params[1]?.toLowerCase() === 'ses' ? ChannelType.GuildVoice : ChannelType.GuildText;
-                const newCh = await guild.channels.create({ name, type });
-                return { success: true, message: `📢 Kanal açıldı: <#${newCh.id}>` };
+                const parentCategory = params[2] ? await findChannel(guild, params[2]) : undefined;
+                
+                try {
+                    const newCh = await guild.channels.create({ 
+                        name, 
+                        type,
+                        parent: parentCategory?.id || undefined,
+                        reason: `Bot tarafından oluşturuldu - ${message.author.username}`
+                    });
+                    return { success: true, message: `📢 Kanal açıldı: <#${newCh.id}>` };
+                } catch (error) {
+                    return { success: false, message: `❌ Kanal oluşturmada hata: ${error.message}` };
+                }
             }
 
             case 'kanal-sil': {
@@ -40,6 +54,53 @@ module.exports = {
                 if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok.' };
                 await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true });
                 return { success: true, message: '🔓 Kanal açıldı.' };
+            }
+
+            // Phase 3: New channel commands
+            case 'kanal-yeniden-adlandır':
+            case 'kanal-isim-degistir':
+            case 'rename-channel': {
+                if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok.' };
+                
+                // Find channel by ID or name
+                let targetChannel = null;
+                if (params[0]) {
+                    targetChannel = await findChannel(guild, params[0]);
+                }
+                if (!targetChannel) targetChannel = channel;
+                
+                const newName = params[1];
+                if (!newName) return { success: false, message: '❌ Yeni kanal adı gerekli.' };
+                
+                try {
+                    const oldName = targetChannel.name;
+                    await targetChannel.setName(newName);
+                    return { success: true, message: `✏️ Kanal adı **#${oldName}** → **#${newName}** olarak değiştirildi.` };
+                } catch (error) {
+                    return { success: false, message: `❌ Hata: ${error.message}` };
+                }
+            }
+
+            case 'kanal-konu-degistir':
+            case 'kanal-topic':
+            case 'set-channel-topic': {
+                if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok.' };
+                
+                // Find channel by ID or name
+                let targetChannel = null;
+                if (params[0]) {
+                    targetChannel = await findChannel(guild, params[0]);
+                }
+                if (!targetChannel) targetChannel = channel;
+                
+                const newTopic = params.slice(1).join(':') || '';
+                
+                try {
+                    await targetChannel.setTopic(newTopic);
+                    return { success: true, message: `📝 Kanal konusu güncellendi: "${newTopic}"` };
+                } catch (error) {
+                    return { success: false, message: `❌ Hata: ${error.message}` };
+                }
             }
 
             case 'kanal-yetki-ayarla': {
@@ -121,26 +182,27 @@ module.exports = {
                 const role = await findRole(guild, params.join(' '));
                 if (!role) return { success: false, message: '❌ Rol bulunamadı.' };
 
-                const db = require('croxydb'); // Dynamic import or pass via params if needed, but simple require works
-                db.set(`otorol_${guild.id}`, role.id);
+                const db = require('../mongodb-helper');
+                await db.set(`otorol_${guild.id}`, role.id);
                 return { success: true, message: `✅ Otorol ayarlandı: <@&${role.id}>` };
             }
 
             case 'otorol-sifirla': {
                 if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok!' };
-                const db = require('croxydb');
-                db.delete(`otorol_${guild.id}`);
+                const db = require('../mongodb-helper');
+                await db.delete(`otorol_${guild.id}`);
                 return { success: true, message: `🗑️ Otorol sıfırlandı.` };
             }
 
             case 'hosgeldin-kanal-ayarla': {
                 if (!hasPermission(message, 'admin')) return { success: false, message: '❌ Yetkiniz yok!' };
                 const targetChannel = (await findChannel(guild, params[0])) || channel;
-                const db = require('croxydb');
-                db.set(`hosgeldin_kanal_${guild.id}`, targetChannel.id);
+                const db = require('../mongodb-helper');
+                await db.set(`hosgeldin_kanal_${guild.id}`, targetChannel.id);
                 return { success: true, message: `✅ Hoşgeldin kanalı: <#${targetChannel.id}>` };
             }
 
+            case 'duyuru':
             case 'duyuru-gonder': {
                 // params: [kanalAdi, ...mesaj]
                 // "kanalAdi" özel keywords olabilir: "hosgeldin", "genel", "duyuru"
@@ -153,10 +215,10 @@ module.exports = {
                 if (!content) return { success: false, message: '❌ Mesaj içeriği boş.' };
 
                 let targetChannel;
-                const db = require('croxydb');
+                const db = require('../mongodb-helper');
 
                 if (targetName === 'hosgeldin') {
-                    const welcomeChId = db.fetch(`hosgeldin_kanal_${guild.id}`);
+                    const welcomeChId = await db.fetch(`hosgeldin_kanal_${guild.id}`);
                     if (welcomeChId) targetChannel = guild.channels.cache.get(welcomeChId);
                 }
 
@@ -169,8 +231,12 @@ module.exports = {
                 // Hayır, "kanal bulunamadı" dönelim ki AI öğrensin.
                 if (!targetChannel) return { success: false, message: `❌ Kanal bulunamadı: ${targetName}` };
 
-                await targetChannel.send(content);
-                return { success: true, message: `✅ Duyuru gönderildi: <#${targetChannel.id}>` };
+                try {
+                    await targetChannel.send(content);
+                    return { success: true, message: `✅ Duyuru gönderildi: <#${targetChannel.id}>` };
+                } catch (error) {
+                    return { success: false, message: `❌ Duyuru gönderme başarısız: ${error.message || error}` };
+                }
             }
         }
         return null;

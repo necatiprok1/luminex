@@ -185,7 +185,7 @@ ${emojis.decorations.starLine}
 
                     await i.update({ embeds: [catEmbed], components: [row] });
                 } else {
-                    await i.reply({ content: `❌ Bu kategori bulunamadı.`, ephemeral: true });
+                    await i.reply({ content: `❌ Bu kategori bulunamadı.`, flags: 64 });
                 }
             }
         });

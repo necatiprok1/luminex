@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 
 /**
  * 🎉 Luminex Çekiliş Sistemi
@@ -42,12 +42,12 @@ class GiveawaySystem {
             createdAt: Date.now()
         };
 
-        db.set(`giveaway_${msg.id}`, giveawayData);
+        await db.set(`giveaway_${msg.id}`, giveawayData);
 
         // Aktif çekilişler listesine ekle
-        let activeList = db.fetch(`giveaway_active_${guildId}`) || [];
+        let activeList = (await db.fetch(`giveaway_active_${guildId}`)) || [];
         activeList.push(msg.id);
-        db.set(`giveaway_active_${guildId}`, activeList);
+        await db.set(`giveaway_active_${guildId}`, activeList);
 
         // Zamanlayıcı (client ile süre dolunca kazanan açıklanacak)
         this.scheduleEnd(client, msg.id, duration);
@@ -59,10 +59,10 @@ class GiveawaySystem {
      * Katılım handler (buton) - Toggle: Katıl / Ayrıl
      */
     async handleJoin(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         const messageId = interaction.message.id;
-        let data = db.fetch(`giveaway_${messageId}`);
+        let data = await db.fetch(`giveaway_${messageId}`);
 
         if (!data) {
             return interaction.editReply({ content: '❌ Bu çekiliş bulunamadı!' });
@@ -80,7 +80,7 @@ class GiveawaySystem {
         // Zaten katılmış mı? → Ayrıl
         if (data.participants.includes(userId)) {
             data.participants = data.participants.filter(id => id !== userId);
-            db.set(`giveaway_${messageId}`, data);
+            await db.set(`giveaway_${messageId}`, data);
 
             await this.updateMessage(interaction.message, data).catch(() => {});
             return interaction.editReply({ content: '⬅️ Çekilişten ayrıldın.' });
@@ -88,7 +88,7 @@ class GiveawaySystem {
 
         // Katıl
         data.participants.push(userId);
-        db.set(`giveaway_${messageId}`, data);
+        await db.set(`giveaway_${messageId}`, data);
 
         await this.updateMessage(interaction.message, data).catch(() => {});
         return interaction.editReply({ content: '🎉 Çekilişe katıldın! Bol şans!' });
@@ -145,7 +145,7 @@ class GiveawaySystem {
         
         // Timeout'u referans olarak sakla (bellek sızıntısı önlemek için)
         const timeout = setTimeout(async () => {
-            const data = db.fetch(`giveaway_${messageId}`);
+            const data = await db.fetch(`giveaway_${messageId}`);
             if (data && !data.ended) {
                 await this.finishGiveaway(client, data);
             }
@@ -160,14 +160,21 @@ class GiveawaySystem {
      */
     async checkActiveGiveaways(client) {
         const promises = [];
-        client.guilds.cache.forEach(guild => {
-            const activeList = db.fetch(`giveaway_active_${guild.id}`) || [];
+        for (const guild of client.guilds.cache.values()) {
+            let activeList = (await db.fetch(`giveaway_active_${guild.id}`)) || [];
             
-            if (activeList.length === 0) return;
+            // Ensure activeList is an array
+            if (!Array.isArray(activeList)) {
+                console.warn(`[GIVEAWAY] Invalid activeList for guild ${guild.id}, resetting...`);
+                await db.set(`giveaway_active_${guild.id}`, []);
+                continue;
+            }
+            
+            if (activeList.length === 0) continue;
 
-            activeList.forEach(messageId => {
-                const data = db.fetch(`giveaway_${messageId}`);
-                if (!data || data.ended) return;
+            for (const messageId of activeList) {
+                const data = await db.fetch(`giveaway_${messageId}`);
+                if (!data || data.ended) continue;
 
                 const remaining = data.endTime - Date.now();
 
@@ -177,7 +184,7 @@ class GiveawaySystem {
                 } else {
                     // Zamanlayıcı kur
                     const timeout = setTimeout(async () => {
-                        const currentData = db.fetch(`giveaway_${messageId}`);
+                        const currentData = await db.fetch(`giveaway_${messageId}`);
                         if (currentData && !currentData.ended) {
                             await this.finishGiveaway(client, currentData);
                         }
@@ -187,8 +194,8 @@ class GiveawaySystem {
                     if (!client.giveawayTimeouts) client.giveawayTimeouts = new Map();
                     client.giveawayTimeouts.set(messageId, timeout);
                 }
-            });
-        });
+            }
+        }
         
         if (promises.length > 0) {
             await Promise.all(promises);
@@ -205,7 +212,7 @@ class GiveawaySystem {
         }
 
         // Veritabanından en güncel veriyi çek (bellekteki eski olabilir)
-        const freshData = db.fetch(`giveaway_${data.messageId}`);
+        const freshData = await db.fetch(`giveaway_${data.messageId}`);
         if (!freshData || freshData.ended) {
             console.log('[GIVEAWAY] Çekiliş zaten bitmiş veya veri yok:', data.messageId);
             return;
@@ -213,7 +220,7 @@ class GiveawaySystem {
 
         // Hemen ended işaretle (çift işlem önleme)
         freshData.ended = true;
-        db.set(`giveaway_${data.messageId}`, freshData);
+        await db.set(`giveaway_${data.messageId}`, freshData);
 
         const participants = Array.isArray(freshData.participants) ? freshData.participants : [];
         let winners = [];
@@ -271,17 +278,17 @@ class GiveawaySystem {
             }
 
             // 3. Aktif listeden kaldır
-            db.set(`giveaway_${freshData.messageId}`, freshData);
-            let activeList = db.fetch(`giveaway_active_${freshData.guildId}`) || [];
+            await db.set(`giveaway_${freshData.messageId}`, freshData);
+            let activeList = (await db.fetch(`giveaway_active_${freshData.guildId}`)) || [];
             activeList = activeList.filter(id => id !== freshData.messageId);
-            db.set(`giveaway_active_${freshData.guildId}`, activeList);
+            await db.set(`giveaway_active_${freshData.guildId}`, activeList);
             
             // 4. Geçmişe ekle
             const historyKey = `giveaway_history_${freshData.guildId}`;
-            let history = db.fetch(historyKey) || [];
+            let history = (await db.fetch(historyKey)) || [];
             history.push({ ...freshData, endedAt: Date.now() });
             if (history.length > 50) history = history.slice(-50);
-            db.set(historyKey, history);
+            await db.set(historyKey, history);
 
             console.log(`[GIVEAWAY] ✅ Çekiliş sona erdi: ${freshData.prize} - Kazanan: ${winnerText}`);
 

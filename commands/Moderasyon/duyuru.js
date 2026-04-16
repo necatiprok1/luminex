@@ -79,6 +79,6 @@ ${emojis.decorations.starLine}
             timestamp: new Date().toISOString()
         };
 
-        await interaction.reply({ embeds: [successEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [successEmbed], flags: 64 });
     },
 };

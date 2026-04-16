@@ -18,7 +18,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error || '❌'} **Hata!**\n\nAI servisi yüklenemedi.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
 
         aiService.clearHistory(interaction.guild.id, interaction.user.id);
@@ -39,6 +39,6 @@ ${emojis.decorations.starLine}
             .setFooter({ text: `🤖 Luminex AI`, iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [successEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [successEmbed], flags: 64 });
     }
 };

@@ -113,9 +113,9 @@ class ErrorHandler {
 
             try {
                 if (interaction.deferred || interaction.replied) {
-                    await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                    await interaction.followUp({ embeds: [errorEmbed], flags: 64 });
                 } else {
-                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                    await interaction.reply({ embeds: [errorEmbed], flags: 64 });
                 }
             } catch (replyError) {
                 // Yanıt gönderilemiyorsa bile sessizce devam et

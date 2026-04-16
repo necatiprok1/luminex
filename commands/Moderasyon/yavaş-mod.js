@@ -54,7 +54,7 @@ ${emojis.decorations.starLine}
                 .setColor('#ED4245')
                 .setDescription(`${emojis.error} **Hata!**\n\nYavaş mod ayarlanamadı. Botun yetkisi kontrol edin.`)
                 .setTimestamp();
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

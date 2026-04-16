@@ -24,14 +24,14 @@ module.exports = {
         if (targetUser.id === interaction.user.id) {
             return interaction.reply({
                 embeds: [new EmbedBuilder().setColor('#ED4245').setDescription('❌ Kendine coin gönderemezsin!')],
-                ephemeral: true
+                flags: 64
             });
         }
 
         if (targetUser.bot) {
             return interaction.reply({
                 embeds: [new EmbedBuilder().setColor('#ED4245').setDescription('❌ Botlara coin gönderemezsin!')],
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -40,7 +40,7 @@ module.exports = {
         if (!result.success) {
             return interaction.reply({
                 embeds: [new EmbedBuilder().setColor('#ED4245').setDescription(`❌ ${result.message}`)],
-                ephemeral: true
+                flags: 64
             });
         }
 

@@ -17,7 +17,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Rolleri Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const rol = interaction.options.getRole('rol');

@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const levelSystem = require("../../utils/level-system");
 const economy = require("../../utils/economy-system");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -26,9 +26,9 @@ module.exports = {
         const levelData = levelSystem.getUserData(guildId, userId);
         const { level, currentXP, neededXP } = levelSystem.getLevelFromXP(levelData.totalXP);
         const balance = economy.getBalance(guildId, userId);
-        const warnings = (db.fetch(`warnings_${guildId}_${userId}`) || []).length;
-        const streak = db.fetch(`eco_streak_${guildId}_${userId}`) || 0;
-        const purchases = (db.fetch(`eco_purchases_${guildId}_${userId}`) || []).length;
+        const warnings = (await db.fetch(`warnings_${guildId}_${userId}`) || []).length;
+        const streak = await db.fetch(`eco_streak_${guildId}_${userId}`) || 0;
+        const purchases = (await db.fetch(`eco_purchases_${guildId}_${userId}`) || []).length;
 
         // Sıralama
         const board = levelSystem.getLeaderboard(guildId, 100);

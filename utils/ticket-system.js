@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 
 /**
  * 🎫 Luminex Ticket Sistemi
@@ -13,8 +13,8 @@ class TicketSystem {
     async createPanel(interaction, supportRoleId) {
         const guildId = interaction.guild.id;
 
-        // Ayarları kaydet (croxydb 0 değerini kabul etmez - sayaç ilk ticket açıldığında otomatik set edilir)
-        db.set(`ticket_role_${guildId}`, supportRoleId);
+        // Ayarları kaydet
+        await db.set(`ticket_role_${guildId}`, supportRoleId);
 
         const embed = new EmbedBuilder()
             .setColor('#5865F2')
@@ -59,18 +59,18 @@ class TicketSystem {
         if (existingTicket) {
             return interaction.reply({
                 content: `❌ Zaten açık bir ticket'ın var: ${existingTicket}`,
-                ephemeral: true
+                flags: 64
             });
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         // Sayacı artır
-        const counter = (db.fetch(`ticket_counter_${guildId}`) || 0) + 1;
-        db.set(`ticket_counter_${guildId}`, counter);
+        const counter = ((await db.fetch(`ticket_counter_${guildId}`)) || 0) + 1;
+        await db.set(`ticket_counter_${guildId}`, counter);
 
         // Destek rolü
-        const supportRoleId = db.fetch(`ticket_role_${guildId}`);
+        const supportRoleId = await db.fetch(`ticket_role_${guildId}`);
 
         // Ticket kategorisi bul veya oluştur
         let category = guild.channels.cache.find(c =>
@@ -118,7 +118,7 @@ class TicketSystem {
             });
 
             // Ticket verisini kaydet
-            db.set(`ticket_data_${ticketChannel.id}`, {
+            await db.set(`ticket_data_${ticketChannel.id}`, {
                 number: counter,
                 userId: user.id,
                 username: user.tag,
@@ -127,7 +127,7 @@ class TicketSystem {
                 status: 'open'
             });
 
-            // Ticket içi mesaj (açıldığında gösterilen hoş geldin)
+            // Ticket içi mesaj
             const welcomeEmbed = new EmbedBuilder()
                 .setColor('#57F287')
                 .setTitle(`🎫 Ticket #${counter} Açıldı`)
@@ -176,10 +176,10 @@ class TicketSystem {
      */
     async handleClose(interaction) {
         const channel = interaction.channel;
-        const ticketData = db.fetch(`ticket_data_${channel.id}`);
+        const ticketData = await db.fetch(`ticket_data_${channel.id}`);
 
         if (!ticketData) {
-            return interaction.reply({ content: '❌ Bu kanal bir ticket değil.', ephemeral: true });
+            return interaction.reply({ content: '❌ Bu kanal bir ticket değil.', flags: 64 });
         }
 
         await interaction.reply({
@@ -204,14 +204,15 @@ class TicketSystem {
         ticketData.status = 'closed';
         ticketData.closedBy = interaction.user.id;
         ticketData.closedAt = Date.now();
-        db.set(`ticket_data_${channel.id}`, ticketData);
+        await db.set(`ticket_data_${channel.id}`, ticketData);
 
         // Ticket geçmişine ekle
         const historyKey = `ticket_history_${interaction.guild.id}`;
-        let history = db.fetch(historyKey) || [];
+        let history = (await db.fetch(historyKey)) || [];
+        if (!Array.isArray(history)) history = [];
         history.push(ticketData);
         if (history.length > 100) history = history.slice(-100);
-        db.set(historyKey, history);
+        await db.set(historyKey, history);
 
         // 10 saniye bekle ve sil
         setTimeout(async () => {

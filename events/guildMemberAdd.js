@@ -1,5 +1,5 @@
 const { Events } = require("discord.js");
-const db = require("croxydb");
+const db = require("../utils/mongodb-helper");
 const aiService = require("../utils/ai-service");
 
 // Bu dosya SADECE "üye sunucuya KATILDIĞINDA" (girdiğinde) çalışır.
@@ -10,10 +10,30 @@ module.exports = {
         try {
             const logSystem = require('../utils/log-system');
             await logSystem.logMemberJoin(member);
-        } catch (e) { }
+        } catch (e) {
+            console.warn('[MEMBER-ADD] ⚠️  Failed to log member join:', e.message);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // 🛡️ ANTİ-RAİD: KATILIM KONTROLÜ
+        // ═══════════════════════════════════════════════════════
+        try {
+            const antiRaid = require('../utils/anti-raid-system');
+            await antiRaid.handleMemberJoin(member);
+        } catch (err) {
+            console.warn('[MEMBER-ADD] ⚠️  Anti-raid system error:', err.message);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // 📈 ANALİTİK: ÜYE KATILIM
+        // ═══════════════════════════════════════════════════════
+        try {
+            const analytics = require('../utils/analytics-system');
+            analytics.trackMemberFlow(member.guild.id, 'joins');
+        } catch {}
 
         // 1. Otorol İşlemi
-        const rol = db.get(`otorol_${member.guild.id}`);
+        const rol = await db.fetch(`otorol_${member.guild.id}`);
         if (rol) {
             // Rol ID olarak kaydedilmiş mi kontrol et
             const roleObj = member.guild.roles.cache.get(rol) ||
@@ -27,13 +47,27 @@ module.exports = {
 
         // 2. AI Hoşgeldin Sistemi
         // Dashboard 'hosgeldinkanal_GUILDID' anahtarını kullanıyor.
-        const welcomeChannelId = db.fetch(`hosgeldinkanal_${member.guild.id}`);
-        const isAIWelcomeActive = db.fetch(`aimod_${member.guild.id}`) !== false; // AI Modu açık mı?
+        const welcomeChannelId = await db.fetch(`hosgeldinkanal_${member.guild.id}`);
+        const isAIWelcomeActive = await db.fetch(`aimod_${member.guild.id}`) !== false; // AI Modu açık mı?
 
         if (!welcomeChannelId) return;
 
         let channel = member.guild.channels.cache.get(welcomeChannelId);
         if (!channel) return;
+
+        // ═══════════════════════════════════════════════════════
+        // 🎨 HOŞGELDİN RESMİ
+        // ═══════════════════════════════════════════════════════
+        let welcomeImage = null;
+        const welcomeImageEnabled = await db.fetch(`module_${member.guild.id}_hosgeldin-sistemi`);
+        if (welcomeImageEnabled) {
+            try {
+                const welcomeImageGen = require('../utils/welcome-image');
+                welcomeImage = await welcomeImageGen.create(member);
+            } catch (e) {
+                console.warn('[WELCOME-IMG] Resim oluşturma hatası:', e.message);
+            }
+        }
 
         if (channel && isAIWelcomeActive) { // AI hoşgeldin sistemi sadece AI modu açıksa çalışır
             // AI için prompt hazırla
@@ -82,7 +116,7 @@ module.exports = {
                     }
 
                     if (finalResponse.length > 0) {
-                        await channel.send(finalResponse);
+                        await channel.send({ content: finalResponse, files: welcomeImage ? [welcomeImage] : [] });
                     }
                 } else {
                     // AI Yanıt veremezse yedek (Fallback) mesaj
@@ -92,13 +126,16 @@ module.exports = {
                         `🤖 Selam **${member.user.username}**! Ben bu sunucunun yapay zekasıyım. Seninle tanıştığıma sevindim.`
                     ];
                     const randomMsg = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
-                    await channel.send(randomMsg);
+                    await channel.send({ content: randomMsg, files: welcomeImage ? [welcomeImage] : [] });
                 }
             } catch (e) {
                 console.error("AI Welcome Hatası:", e);
                 // Hata durumunda bile en basit mesajı gönder
-                channel.send(`👋 Hoş geldin ${member}!`).catch(() => { });
+                channel.send({ content: `👋 Hoş geldin ${member}!`, files: welcomeImage ? [welcomeImage] : [] }).catch(() => { });
             }
+        } else if (channel) {
+            // Sadece resim gönder (AI kapalıysa)
+            channel.send({ content: `👋 Hoş geldin ${member}!`, files: welcomeImage ? [welcomeImage] : [] }).catch(() => { });
         }
     }
 };

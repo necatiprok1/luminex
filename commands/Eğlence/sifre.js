@@ -82,6 +82,6 @@ ${emojis.decorations.starLine}
             })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 });
     },
 };

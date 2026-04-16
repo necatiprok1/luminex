@@ -23,7 +23,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Rolleri Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const rol = interaction.options.getRole('rol');
@@ -58,7 +58,7 @@ ${emojis.decorations.starLine}
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Hata!**\n\nKullanıcıdan rol alınamadı. Botun yetkisi yetersiz olabilir.`)
                 .setTimestamp();
-            interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

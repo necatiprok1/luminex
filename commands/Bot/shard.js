@@ -1,6 +1,5 @@
 const humanize = require("humanize-duration");
 const { PermissionsBitField, EmbedBuilder, SlashCommandBuilder } = require("discord.js");
-const db = require("croxydb");
 const emojis = require("../../utils/emojis");
 
 module.exports = {

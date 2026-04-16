@@ -22,7 +22,7 @@ module.exports = {
                 .setColor('#ED4245')
                 .setDescription(`${emojis.error} **API Hatası!**\n\nHava durumu API anahtarı yapılandırılmamış.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noApiEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noApiEmbed], flags: 64 });
         }
 
         try {
@@ -99,7 +99,7 @@ ${emojis.static.info} Lütfen geçerli bir şehir adı girin.
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: 64 });
             }
         }
     },

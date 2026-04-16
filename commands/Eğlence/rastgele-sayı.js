@@ -22,7 +22,7 @@ module.exports = {
                 .setColor('#ED4245')
                 .setDescription(`${emojis.error} **Hata!**\n\nMinimum değer maksimum değerden küçük olmalıdır.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
 
         const result = Math.floor(Math.random() * (max - min + 1)) + min;

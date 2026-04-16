@@ -1,4 +1,4 @@
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 const { EmbedBuilder } = require('discord.js');
 
 /**
@@ -49,9 +49,9 @@ class LevelSystem {
     /**
      * Kullanıcı verisini getir
      */
-    getUserData(guildId, userId) {
+    async getUserData(guildId, userId) {
         const key = `xp_${guildId}_${userId}`;
-        const raw = db.fetch(key);
+        const raw = await db.fetch(key);
         if (!raw || typeof raw !== 'object') return { totalXP: 0, level: 0, messages: 0 };
         return {
             totalXP: Number(raw.totalXP) || 0,
@@ -65,7 +65,7 @@ class LevelSystem {
      * XP ver ve seviye kontrol et
      * @returns {object|null} Seviye atladıysa bilgi döner
      */
-    addXP(guildId, userId, username) {
+    async addXP(guildId, userId, username) {
         // Cooldown kontrolü
         const cooldownKey = `${guildId}_${userId}`;
         const now = Date.now();
@@ -82,7 +82,7 @@ class LevelSystem {
 
         // Mevcut veriyi al (eski veri formatı uyumluluğu)
         const key = `xp_${guildId}_${userId}`;
-        const raw = db.fetch(key);
+        const raw = await db.fetch(key);
         let data = raw && typeof raw === 'object'
             ? { totalXP: Number(raw.totalXP) || 0, level: Number(raw.level) || 0, messages: Number(raw.messages) || 0, username: raw.username || username }
             : { totalXP: 0, level: 0, messages: 0, username };
@@ -99,10 +99,10 @@ class LevelSystem {
         data.level = newLevel;
 
         // Kaydet (croxydb 0 kabul etmez - objeler sorun değil)
-        db.set(key, data);
+        await db.set(key, data);
 
         // Liderlik tablosu indeksini güncelle
-        this.updateLeaderboardIndex(guildId, userId, data.totalXP, username);
+        await this.updateLeaderboardIndex(guildId, userId, data.totalXP, username);
 
         // Seviye atladı mı?
         if (newLevel > oldLevel) {
@@ -124,9 +124,9 @@ class LevelSystem {
     /**
      * Liderlik tablosu indeksini güncelle
      */
-    updateLeaderboardIndex(guildId, userId, totalXP, username) {
+    async updateLeaderboardIndex(guildId, userId, totalXP, username) {
         const key = `leaderboard_${guildId}`;
-        let board = db.fetch(key) || [];
+        let board = await db.fetch(key) || [];
 
         const existing = board.findIndex(e => String(e.userId) === String(userId));
         if (existing !== -1) {
@@ -142,15 +142,21 @@ class LevelSystem {
         // Sadece top 100'ü tut
         board = board.slice(0, 100);
 
-        db.set(key, board);
+        await db.set(key, board);
     }
 
     /**
      * Liderlik tablosunu getir
      */
-    getLeaderboard(guildId, limit = 10) {
+    async getLeaderboard(guildId, limit = 10) {
         const key = `leaderboard_${guildId}`;
-        const board = db.fetch(key) || [];
+        const board = await db.fetch(key) || [];
+        // Ensure board is an array
+        if (!Array.isArray(board)) {
+            console.warn(`[LEVEL] Invalid leaderboard data for guild ${guildId}, resetting...`);
+            await db.set(key, []);
+            return [];
+        }
         return board.slice(0, limit);
     }
 
@@ -180,8 +186,8 @@ class LevelSystem {
     /**
      * Seviye kartı embed'i oluştur
      */
-    getProfileEmbed(userId, guildId, memberOrUser) {
-        const data = this.getUserData(guildId, userId);
+    async getProfileEmbed(userId, guildId, memberOrUser) {
+        const data = await this.getUserData(guildId, userId);
         const totalXP = data.totalXP || 0;
         const messages = data.messages || 0;
         const { level, currentXP, neededXP } = this.getLevelFromXP(totalXP);
@@ -192,7 +198,7 @@ class LevelSystem {
         const user = memberOrUser?.user || memberOrUser;
 
         // Sıralama bul
-        const board = this.getLeaderboard(guildId, 100);
+        const board = await this.getLeaderboard(guildId, 100);
         const rankIndex = board.findIndex(e => String(e.userId) === String(userId));
         const rank = rankIndex >= 0 ? rankIndex + 1 : null;
 
@@ -220,8 +226,8 @@ class LevelSystem {
     /**
      * Liderlik tablosu embed'i
      */
-    getLeaderboardEmbed(guildId, guild) {
-        const board = this.getLeaderboard(guildId, 10);
+    async getLeaderboardEmbed(guildId, guild) {
+        const board = await this.getLeaderboard(guildId, 10);
 
         if (board.length === 0) {
             return new EmbedBuilder()
@@ -277,7 +283,7 @@ class LevelSystem {
      * Seviye rollerini kontrol et ve uygula
      */
     async checkLevelRoles(guildId, member, newLevel) {
-        const levelRoles = db.fetch(`level_roles_${guildId}`) || {};
+        const levelRoles = await db.fetch(`level_roles_${guildId}`) || {};
 
         for (const [reqLevel, roleId] of Object.entries(levelRoles)) {
             if (newLevel >= parseInt(reqLevel) && roleId) {
@@ -297,11 +303,11 @@ class LevelSystem {
     /**
      * Seviye rolü ayarla
      */
-    setLevelRole(guildId, level, roleId) {
+    async setLevelRole(guildId, level, roleId) {
         const key = `level_roles_${guildId}`;
-        let roles = db.fetch(key) || {};
+        let roles = await db.fetch(key) || {};
         roles[level] = roleId;
-        db.set(key, roles);
+        await db.set(key, roles);
     }
 }
 

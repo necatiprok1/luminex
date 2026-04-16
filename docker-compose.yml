@@ -1,23 +1,69 @@
 services:
   luminex-bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: luminex-bot
-    restart: always
+    restart: on-failure
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
     volumes:
       - ./croxydb:/usr/src/app/croxydb
       - ./data:/usr/src/app/data
     ports:
       - "3000:3000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - luminex_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: luminex-mongo
-    restart: always
+    restart: on-failure
+    pull_policy: always
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - ./mongodb_data:/data/db
+    networks:
+      - luminex_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ═══════════════════════════════════════════════════════════
+# 🌐 DOCKER NETWORK CONFIGURATION
+# ═══════════════════════════════════════════════════════════
+networks:
+  luminex_network:
+    driver: bridge

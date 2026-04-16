@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, PermissionFlagsBits, Events, Collection, EmbedBuilder, ChannelType } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionFlagsBits, Events, Collection, EmbedBuilder, ChannelType, Partials } = require("discord.js");
 const fs = require('node:fs');
 const path = require('node:path');
 const INTENTS = [
@@ -10,7 +10,15 @@ const INTENTS = [
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildVoiceStates,
 ];
-const client = new Client({ intents: INTENTS });
+const client = new Client({ 
+    intents: INTENTS,
+    partials: [
+        Partials.Message,
+        Partials.Reaction,
+        Partials.Channel,
+        Partials.User,
+    ],
+});
 const config = require("./config.json");
 require('dotenv').config();
 
@@ -19,8 +27,7 @@ const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10");
 const { readdirSync } = require("fs");
 const moment = require("moment");
-const db = require("croxydb");
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 // ══════════════════════════════════════
 // 🛡️ ENV VALIDATION
@@ -44,7 +51,7 @@ for (const envVar of optionalEnvVars) {
 console.log(chalk.green('[ENV] ✅ Çevresel değişkenler doğrulandı'));
 
 // ══════════════════════════════════════
-// 🗄️ MONGODB CONNECTION
+// 🗄️ MONGODB CONNECTION & MIGRATION
 // ══════════════════════════════════════
 if (process.env.MONGO_URI) {
     const mongoOptions = {
@@ -52,14 +59,36 @@ if (process.env.MONGO_URI) {
         connectTimeoutMS: 10000,
     };
 
-    mongoose.connect(process.env.MONGO_URI, mongoOptions).then(() => {
+    mongoose.connect(process.env.MONGO_URI, mongoOptions).then(async () => {
         console.log(chalk.green('[DATABASE] ✅ MongoDB veritabanına başarıyla bağlanıldı.'));
+        
+        // Check if migration is needed
+        try {
+            const SystemPrompt = require('./models/SystemPrompt');
+            const promptCount = await SystemPrompt.countDocuments();
+            
+            if (promptCount === 0) {
+                console.log(chalk.yellow('[DATABASE] 🔄 First-time setup detected, running migration...'));
+                try {
+                    const MongoDBMigration = require('./scripts/migrate-to-mongodb');
+                    await new MongoDBMigration().execute();
+                    console.log(chalk.green('[DATABASE] ✅ Migration completed successfully'));
+                } catch (migrationError) {
+                    console.error(chalk.red('[DATABASE] ❌ Migration failed:'), migrationError.message);
+                    console.log(chalk.yellow('[DATABASE] ⚠️ Continuing without migration - some features may not work'));
+                }
+            } else {
+                console.log(chalk.green('[DATABASE] ✅ Database setup complete, skipping migration'));
+            }
+        } catch (err) {
+            console.error(chalk.red('[DATABASE] ⚠️ Database check error:'), err.message);
+        }
     }).catch((err) => {
-        console.error(chalk.red('[DATABASE] ❌ MongoDB bağlantı hatası: '), err.message);
-        console.log(chalk.yellow('[DATABASE] ⚠️ MongoDB başarısız, croxydb yedek olarak devrede.'));
+        console.error(chalk.red('[DATABASE] ⚠️ MongoDB bağlantı hatası: '), err.message);
+        console.log(chalk.yellow('[DATABASE] ⚠️ MongoDB olmadan devam ediliyor - bazı özellikler çalışmayabilir'));
     });
 } else {
-    console.log(chalk.yellow('[DATABASE] ⚠️ MONGO_URI ayarlanmamış, mevcut veritabanı(croxydb) ile devam ediliyor.'));
+    console.warn(chalk.yellow('[DATABASE] ⚠️ MONGO_URI ayarlanmamış - MongoDB olmadan devam ediliyor'));
 }
 
 // ══════════════════════════════════════
@@ -74,86 +103,68 @@ client.commands = new Collection();
 client.slashcommands = new Collection();
 client.commandaliases = new Collection();
 
+// Slash komutları saklayacak dizi — ready event'inde kaydedilecek
+client.slashCommandData = [];
+
 const rest = new REST({ version: "10" }).setToken(token);
 
-const slashcommands = [];
-const commandFolders = fs.readdirSync('./commands');
+// 🔧 Filter out system files and get only directories
+const commandFolders = fs.readdirSync('./commands').filter(file => {
+    const stat = fs.statSync(`./commands/${file}`);
+    // Skip system files and only include directories
+    return stat.isDirectory() && !file.startsWith('.');
+});
 
 console.log(chalk.red('[COMMANDS] Loading Commands...'));
 
 for (const folder of commandFolders) {
-    const commandFiles = fs.readdirSync(`./commands/${folder}`).filter(file => file.endsWith('.js'));
-    for (const file of commandFiles) {
-        try {
-            const commandPath = `./commands/${folder}/${file}`;
-            const command = require(commandPath);
-            const commandCategory = folder.toLocaleUpperCase();
-            if (command && command.data && typeof command.data.toJSON === 'function') {
-                slashcommands.push(command.data.toJSON());
-                client.slashcommands.set(command.data.name, command);
-                console.log(chalk.cyan('[COMMANDS] ' + command.data.name + ' Yüklendi' + chalk.yellow(' - ') + chalk.red('Kategori: ' + commandCategory)));
-            } else {
-                client.commands.set(command.name || file.replace('.js', ''), command);
-                console.log(chalk.yellow('[COMMANDS] ' + file + ' (slash değil veya data yok) yüklendi'));
+    try {
+        const commandFiles = fs.readdirSync(`./commands/${folder}`).filter(file => file.endsWith('.js'));
+        for (const file of commandFiles) {
+            try {
+                const commandPath = `./commands/${folder}/${file}`;
+                const command = require(commandPath);
+                const commandCategory = folder.toLocaleUpperCase();
+                if (command && command.data && typeof command.data.toJSON === 'function') {
+                    client.slashCommandData.push(command.data.toJSON());
+                    client.slashcommands.set(command.data.name, command);
+                    console.log(chalk.cyan('[COMMANDS] ' + command.data.name + ' Yüklendi' + chalk.yellow(' - ') + chalk.red('Kategori: ' + commandCategory)));
+                } else {
+                    client.commands.set(command.name || file.replace('.js', ''), command);
+                    console.log(chalk.yellow('[COMMANDS] ' + file + ' (slash değil veya data yok) yüklendi'));
+                }
+            } catch (err) {
+                console.error(chalk.red('[COMMANDS] HATA yüklerken: ' + file), err);
             }
-        } catch (err) {
-            console.error(chalk.red('[COMMANDS] HATA yüklerken: ' + file), err);
         }
+    } catch (folderErr) {
+        console.error(chalk.red('[COMMANDS] HATA folder okunurken: ' + folder), folderErr.message);
     }
 }
 
-client.on(Events.ClientReady, async () => {
-    try {
-        const registerMode = (process.env.REGISTER_MODE || 'guild').toLowerCase();
-        if (registerMode === 'global') {
-            await rest.put(Routes.applicationCommands(client.user.id), {
-                body: slashcommands,
-            });
-            console.log(chalk.green(`[COMMANDS] ✅ Global → ${slashcommands.length} komut kaydedildi`));
-            // Guild komutlarını temizle (çift görünümü engelle)
-            for (const guild of client.guilds.cache.values()) {
-                try {
-                    await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: [] });
-                    console.log(chalk.yellow(`[COMMANDS] 🧹 ${guild.name} → Guild komutları temizlendi`));
-                } catch (guildErr) {
-                    console.error(chalk.red(`[COMMANDS] ❌ ${guild.name} → Guild komut temizleme başarısız: ${guildErr.message}`));
-                }
+// ══════════════════════════════════════
+// 📦 EVENT HANDLER
+// ══════════════════════════════════════
+// ready.js dahil tüm event'ler buradan yüklenir
+// NOT: bot.js'de ayrı bir client.on(ClientReady) YOKTUR — tüm startup mantığı events/ready.js'dedir
+try {
+    readdirSync("./events").forEach((file) => {
+        if (!file.endsWith('.js') || file.startsWith('.')) return;
+        try {
+            const event = require(`./events/${file}`);
+            if (event.once) {
+                client.once(event.name, (...args) => event.execute(...args));
+            } else {
+                client.on(event.name, (...args) => event.execute(...args));
             }
-        } else {
-            // Global komutları temizle (çift görünümü engelle)
-            try {
-                await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
-                console.log(chalk.yellow(`[COMMANDS] 🧹 Global → Global komutlar temizlendi`));
-            } catch (globalErr) {
-                console.error(chalk.red(`[COMMANDS] ❌ Global komut temizleme başarısız: ${globalErr.message}`));
-            }
-            for (const guild of client.guilds.cache.values()) {
-                try {
-                    await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), {
-                        body: slashcommands,
-                    });
-                    console.log(chalk.green(`[COMMANDS] ✅ ${guild.name} → ${slashcommands.length} komut kaydedildi (anlık)`));
-                } catch (guildErr) {
-                    console.error(chalk.red(`[COMMANDS] ❌ ${guild.name} → Komut kaydı başarısız: ${guildErr.message}`));
-                }
-            }
+        } catch (err) {
+            console.error(chalk.red('[EVENTS] HATA yüklerken: ' + file), err.message);
         }
-    } catch (error) {
-        console.error(chalk.red('[COMMANDS] ❌ Komut kaydı hatası:'), error.message);
-    }
-    console.log(chalk.red(`[START]`) + chalk.green(` ${client.user.username} Aktif Edildi!`));
-    console.log(chalk.cyan(`[STATS] ${slashcommands.length} slash komut kaydedildi | ${client.guilds.cache.size} sunucu`));
-});
-
-
-readdirSync("./events").forEach((file) => {
-    const event = require(`./events/${file}`);
-    if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
-    } else {
-        client.on(event.name, (...args) => event.execute(...args));
-    }
-});
+    });
+    console.log(chalk.green('[EVENTS] ✅ Event handlers loaded'));
+} catch (err) {
+    console.error(chalk.red('[EVENTS] ❌ Event system error:'), err.message);
+}
 
 // ══════════════════════════════════════
 // 🌐 DASHBOARD INITIALIZATION

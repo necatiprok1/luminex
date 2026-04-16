@@ -4,6 +4,8 @@ const DEVELOPERS = ['necati9880', 'luminexcode', 'epicwolflider'];
 
 function hasPermission(message, requiredLevel = 'admin') {
     const member = message.member;
+    if (!member) return false; // No member = no permission
+    
     const isOwner = message.author.id === message.guild.ownerId;
     const isDev = DEVELOPERS.includes(message.author.username);
     const isAdmin = member.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -16,16 +18,20 @@ function hasPermission(message, requiredLevel = 'admin') {
 
 async function findUser(guild, query) {
     if (!query) return null;
-    const mentionMatch = query.match(/^<@!?(\d+)>$/);
+    
+    // Strip @ prefix if present (convert @username to username)
+    const cleanQuery = query.startsWith('@') ? query.slice(1) : query;
+    
+    const mentionMatch = cleanQuery.match(/^<@!?(\d+)>$/);
     if (mentionMatch) {
         try { return await guild.members.fetch(mentionMatch[1]); } catch { return null; }
     }
-    if (/^\d+$/.test(query)) {
-        try { return await guild.members.fetch(query); } catch { return null; }
+    if (/^\d+$/.test(cleanQuery)) {
+        try { return await guild.members.fetch(cleanQuery); } catch { return null; }
     }
-    // Optimized Search
+    // Optimized Search - now cleanQuery has @ stripped
     try {
-        const results = await guild.members.fetch({ query: query, limit: 1 });
+        const results = await guild.members.fetch({ query: cleanQuery, limit: 1 });
         if (results.size > 0) return results.first();
     } catch (err) { console.error("Member fetch error:", err); }
 
@@ -57,16 +63,23 @@ async function findRole(guild, query) {
 
 async function findChannel(guild, query) {
     if (!query) return null;
-    const mentionMatch = query.match(/^<#(\d+)>$/);
+    
+    // # prefix temizle
+    const cleanQuery = query.startsWith('#') ? query.slice(1) : query;
+    
+    const mentionMatch = cleanQuery.match(/^<#(\d+)>$/);
 
     // ID Check
     if (mentionMatch) return await guild.channels.fetch(mentionMatch[1]).catch(() => null);
-    if (/^\d+$/.test(query)) return await guild.channels.fetch(query).catch(() => null);
+    if (/^\d+$/.test(cleanQuery)) return await guild.channels.fetch(cleanQuery).catch(() => null);
 
     // Name Search
-    // Channels are usually cached well, but strictly:
     await guild.channels.fetch();
-    return guild.channels.cache.find(c => c.name.toLowerCase() === query.toLowerCase() || c.id === query);
+    return guild.channels.cache.find(c => 
+        c.name.toLowerCase() === cleanQuery.toLowerCase() || 
+        c.name.toLowerCase() === query.toLowerCase() ||
+        c.id === cleanQuery
+    );
 }
 
 module.exports = { hasPermission, findUser, findRole, findChannel, DEVELOPERS };

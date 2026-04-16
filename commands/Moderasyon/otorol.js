@@ -1,6 +1,6 @@
 const { PermissionFlagsBits, EmbedBuilder } = require("discord.js");
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 const emojis = require("../../utils/emojis");
 
 module.exports = {
@@ -19,11 +19,11 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Rolleri Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const rol = interaction.options.getRole('rol');
-        db.set(`otorol_${interaction.guild.id}`, rol.id);
+        await db.set(`otorol_${interaction.guild.id}`, rol.id);
 
         const successEmbed = new EmbedBuilder()
             .setColor("#57F287")

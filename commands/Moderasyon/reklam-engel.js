@@ -1,5 +1,5 @@
 const { PermissionFlagsBits, EmbedBuilder, SlashCommandBuilder } = require("discord.js");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 const emojis = require("../../utils/emojis");
 
 module.exports = {
@@ -12,13 +12,13 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Mesajları Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
-        const reklamEngel = db.fetch(`reklamengel_${interaction.guild.id}`);
+        const reklamEngel = await db.fetch(`reklamengel_${interaction.guild.id}`);
 
         if (reklamEngel) {
-            db.delete(`reklamengel_${interaction.guild.id}`);
+            await db.delete(`reklamengel_${interaction.guild.id}`);
 
             const offEmbed = new EmbedBuilder()
                 .setColor("#ED4245")
@@ -41,7 +41,7 @@ ${emojis.decorations.starLine}
 
             await interaction.reply({ embeds: [offEmbed] });
         } else {
-            db.set(`reklamengel_${interaction.guild.id}`, true);
+            await db.set(`reklamengel_${interaction.guild.id}`, true);
 
             const onEmbed = new EmbedBuilder()
                 .setColor("#57F287")

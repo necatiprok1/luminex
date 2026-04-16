@@ -1,5 +1,5 @@
 const { PermissionsBitField, EmbedBuilder, SlashCommandBuilder } = require("discord.js");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 const emojis = require("../../utils/emojis");
 
 module.exports = {
@@ -15,8 +15,8 @@ module.exports = {
     run: async (client, interaction) => {
         const sebep = interaction.options.getString('sebep');
 
-        db.set(`afk_${interaction.user.id}`, sebep);
-        db.set(`afkDate_${interaction.user.id}`, { date: Date.now() });
+        await db.set(`afk_${interaction.user.id}`, sebep);
+        await db.set(`afkDate_${interaction.user.id}`, { date: Date.now() });
 
         const embed = new EmbedBuilder()
             .setColor("#57F287")

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hata - Luminex Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .error-code {
+            font-size: 72px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .error-message {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            <% if (status === 401) { %>
+                🔒
+            <% } else if (status === 403) { %>
+                🚫
+            <% } else if (status === 404) { %>
+                🔍
+            <% } else { %>
+                ⚠️
+            <% } %>
+        </div>
+        
+        <div class="error-code"><%= status %></div>
+        
+        <div class="error-title">
+            <% if (status === 401) { %>
+                Oturum Açmanız Gerekmektedir
+            <% } else if (status === 403) { %>
+                Erişim Reddedildi
+            <% } else if (status === 404) { %>
+                Bulunamadı
+            <% } else { %>
+                Hata Oluştu
+            <% } %>
+        </div>
+        
+        <div class="error-message">
+            <%= message %>
+        </div>
+        
+        <div class="error-actions">
+            <% if (actionUrl && actionText) { %>
+                <a href="<%= actionUrl %>" class="btn btn-primary"><%= actionText %></a>
+            <% } %>
+            <a href="/" class="btn btn-secondary">Ana Sayfa</a>
+        </div>
+    </div>
+</body>
+</html>

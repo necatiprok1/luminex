@@ -20,7 +20,7 @@ module.exports = {
                 .setDescription(`${emojis.error || '❌'} **Yetersiz Yetki!**\n\n🛡️ Mesajları Yönetme yetkiniz bulunmuyor.`)
                 .setFooter({ text: "Moderasyon Sistemi" })
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const count = interaction.options.getInteger('sayı');
@@ -57,13 +57,13 @@ ${emojis.decorations.starLine}
                 .setFooter({ text: `🗑️ Mesaj Temizleme`, iconURL: client.user.displayAvatarURL() })
                 .setTimestamp();
 
-            interaction.reply({ embeds: [successEmbed], ephemeral: true });
+            interaction.reply({ embeds: [successEmbed], flags: 64 });
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error || '❌'} **Hata!**\n\nMesajlar silinirken bir hata oluştu.\n\n⚠️ 14 günden eski mesajlar silinemez.`)
                 .setTimestamp();
-            interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };

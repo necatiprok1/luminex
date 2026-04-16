@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const db = require('croxydb');
+const db = require('../../utils/mongodb-helper');
 const emojis = require("../../utils/emojis");
 
 module.exports = {
@@ -13,13 +13,13 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Rolleri Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
-        const küfürEngel = db.get(`kufurengel_${interaction.guild.id}`);
+        const küfürEngel = await db.fetch(`kufurengel_${interaction.guild.id}`);
 
         if (küfürEngel) {
-            db.delete(`kufurengel_${interaction.guild.id}`);
+            await db.delete(`kufurengel_${interaction.guild.id}`);
 
             const offEmbed = new EmbedBuilder()
                 .setColor("#ED4245")
@@ -42,7 +42,7 @@ ${emojis.decorations.starLine}
 
             await interaction.reply({ embeds: [offEmbed] });
         } else {
-            db.set(`kufurengel_${interaction.guild.id}`, true);
+            await db.set(`kufurengel_${interaction.guild.id}`, true);
 
             const onEmbed = new EmbedBuilder()
                 .setColor("#57F287")

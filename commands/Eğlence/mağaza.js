@@ -55,7 +55,7 @@ module.exports = {
             const result = economy.buyItem(interaction.guild.id, interaction.user.id, itemId);
 
             if (!result.success) {
-                await i.reply({ content: `❌ ${result.message}`, ephemeral: true });
+                await i.reply({ content: `❌ ${result.message}`, flags: 64 });
                 return;
             }
 
@@ -69,7 +69,7 @@ module.exports = {
                 )
                 .setTimestamp();
 
-            await i.reply({ embeds: [successEmbed], ephemeral: true });
+            await i.reply({ embeds: [successEmbed], flags: 64 });
         });
 
         collector.on('end', () => {

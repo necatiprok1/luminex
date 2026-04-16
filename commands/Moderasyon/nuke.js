@@ -11,7 +11,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Kanalları Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
@@ -19,7 +19,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Bot Yetkisi Yetersiz!**\n\n${emojis.static.bot} Botun Kanalları Yönet yetkisi bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [botNoPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [botNoPermEmbed], flags: 64 });
         }
 
         const nukeEmbed = new EmbedBuilder()

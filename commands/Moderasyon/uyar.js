@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require("discord.js");
-const db = require("croxydb");
+const db = require("../../utils/mongodb-helper");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,20 +25,20 @@ module.exports = {
         if (targetUser.bot) {
             return interaction.reply({
                 embeds: [new EmbedBuilder().setColor('#ED4245').setDescription('❌ Botları uyaramazsın!')],
-                ephemeral: true
+                flags: 64
             });
         }
 
         if (targetUser.id === interaction.user.id) {
             return interaction.reply({
                 embeds: [new EmbedBuilder().setColor('#ED4245').setDescription('❌ Kendini uyaramazsın!')],
-                ephemeral: true
+                flags: 64
             });
         }
 
         // Uyarı kaydet
         const warningKey = `warnings_${guildId}_${targetUser.id}`;
-        let warnings = db.fetch(warningKey) || [];
+        let warnings = await db.fetch(warningKey) || [];
 
         const newWarning = {
             id: warnings.length + 1,
@@ -49,7 +49,7 @@ module.exports = {
         };
 
         warnings.push(newWarning);
-        db.set(warningKey, warnings);
+        await db.set(warningKey, warnings);
 
         const totalWarnings = warnings.length;
 

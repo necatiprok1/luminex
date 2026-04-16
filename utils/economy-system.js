@@ -1,4 +1,4 @@
-const db = require('croxydb');
+const db = require('./mongodb-helper');
 const { EmbedBuilder } = require('discord.js');
 
 /**
@@ -47,50 +47,50 @@ class EconomySystem {
     // 💰 BAKİYE İŞLEMLERİ
     // ════════════════════════════════════
 
-    getBalance(guildId, userId) {
-        return db.fetch(`eco_balance_${guildId}_${userId}`) || 0;
+    async getBalance(guildId, userId) {
+        return (await db.fetch(`eco_balance_${guildId}_${userId}`)) || 0;
     }
 
-    addBalance(guildId, userId, amount) {
-        if (amount <= 0) return db.fetch(`eco_balance_${guildId}_${userId}`) || 0;
+    async addBalance(guildId, userId, amount) {
+        if (amount <= 0) return (await db.fetch(`eco_balance_${guildId}_${userId}`)) || 0;
         const key = `eco_balance_${guildId}_${userId}`;
-        const current = db.fetch(key) || 0;
-        db.set(key, current + amount);
+        const current = (await db.fetch(key)) || 0;
+        await db.set(key, current + amount);
         return current + amount;
     }
 
-    removeBalance(guildId, userId, amount) {
+    async removeBalance(guildId, userId, amount) {
         const key = `eco_balance_${guildId}_${userId}`;
-        const current = db.fetch(key) || 0;
+        const current = (await db.fetch(key)) || 0;
         const newBalance = Math.max(0, current - amount);
         // croxydb 0 değerini kabul etmez - 0 ise sil
         if (newBalance === 0) {
-            db.delete(key);
+            await db.delete(key);
         } else {
-            db.set(key, newBalance);
+            await db.set(key, newBalance);
         }
         return newBalance;
     }
 
-    transfer(guildId, fromUserId, toUserId, amount) {
-        const fromBalance = this.getBalance(guildId, fromUserId);
+    async transfer(guildId, fromUserId, toUserId, amount) {
+        const fromBalance = await this.getBalance(guildId, fromUserId);
         if (fromBalance < amount) return { success: false, message: 'Yetersiz bakiye!' };
         if (amount <= 0) return { success: false, message: 'Geçersiz miktar!' };
 
-        this.removeBalance(guildId, fromUserId, amount);
-        this.addBalance(guildId, toUserId, amount);
+        await this.removeBalance(guildId, fromUserId, amount);
+        await this.addBalance(guildId, toUserId, amount);
 
-        return { success: true, fromBalance: fromBalance - amount, toBalance: this.getBalance(guildId, toUserId) };
+        return { success: true, fromBalance: fromBalance - amount, toBalance: await this.getBalance(guildId, toUserId) };
     }
 
     // ════════════════════════════════════
     // 📅 GÜNLÜK ÖDÜL
     // ════════════════════════════════════
 
-    claimDaily(guildId, userId) {
+    async claimDaily(guildId, userId) {
         const lastClaimKey = `eco_daily_${guildId}_${userId}`;
         const streakKey = `eco_streak_${guildId}_${userId}`;
-        const lastClaim = db.fetch(lastClaimKey) || 0;
+        const lastClaim = (await db.fetch(lastClaimKey)) || 0;
         const now = Date.now();
 
         // 24 saat kontrolü
@@ -101,7 +101,7 @@ class EconomySystem {
         }
 
         // Streak kontrolü (48 saat içinde almadıysa streak sıfırlanır)
-        let streak = db.fetch(streakKey) || 0;
+        let streak = (await db.fetch(streakKey)) || 0;
         if (now - lastClaim > dayMs * 2) {
             streak = 0; // Streak kırıldı
         }
@@ -113,9 +113,9 @@ class EconomySystem {
         const totalReward = baseReward + streakBonus;
 
         // Kaydet
-        db.set(lastClaimKey, now);
-        db.set(streakKey, streak);
-        const newBalance = this.addBalance(guildId, userId, totalReward);
+        await db.set(lastClaimKey, now);
+        await db.set(streakKey, streak);
+        const newBalance = await this.addBalance(guildId, userId, totalReward);
 
         return {
             success: true,
@@ -131,9 +131,9 @@ class EconomySystem {
     // 💼 ÇALIŞMA
     // ════════════════════════════════════
 
-    work(guildId, userId) {
+    async work(guildId, userId) {
         const lastWorkKey = `eco_work_${guildId}_${userId}`;
-        const lastWork = db.fetch(lastWorkKey) || 0;
+        const lastWork = (await db.fetch(lastWorkKey)) || 0;
         const now = Date.now();
 
         if (now - lastWork < this.WORK_COOLDOWN) {
@@ -144,8 +144,8 @@ class EconomySystem {
         const job = this.JOBS[Math.floor(Math.random() * this.JOBS.length)];
         const earnings = Math.floor(Math.random() * (this.WORK_MAX - this.WORK_MIN + 1)) + this.WORK_MIN;
 
-        db.set(lastWorkKey, now);
-        const newBalance = this.addBalance(guildId, userId, earnings);
+        await db.set(lastWorkKey, now);
+        const newBalance = await this.addBalance(guildId, userId, earnings);
 
         return {
             success: true,
@@ -159,36 +159,36 @@ class EconomySystem {
     // 🏪 MAĞAZA
     // ════════════════════════════════════
 
-    getShopItems(guildId) {
-        return db.fetch(`eco_shop_${guildId}`) || this.DEFAULT_SHOP_ITEMS;
+    async getShopItems(guildId) {
+        return (await db.fetch(`eco_shop_${guildId}`)) || this.DEFAULT_SHOP_ITEMS;
     }
 
-    buyItem(guildId, userId, itemId) {
-        const items = this.getShopItems(guildId);
+    async buyItem(guildId, userId, itemId) {
+        const items = await this.getShopItems(guildId);
         const item = items.find(i => i.id === itemId);
         if (!item) return { success: false, message: 'Ürün bulunamadı!' };
 
-        const balance = this.getBalance(guildId, userId);
+        const balance = await this.getBalance(guildId, userId);
         if (balance < item.price) return { success: false, message: 'Yetersiz bakiye!' };
 
-        this.removeBalance(guildId, userId, item.price);
+        await this.removeBalance(guildId, userId, item.price);
 
         // Satın alma geçmişi
         const purchaseKey = `eco_purchases_${guildId}_${userId}`;
-        let purchases = db.fetch(purchaseKey) || [];
+        let purchases = (await db.fetch(purchaseKey)) || [];
         purchases.push({ itemId, name: item.name, price: item.price, date: Date.now() });
-        db.set(purchaseKey, purchases);
+        await db.set(purchaseKey, purchases);
 
-        return { success: true, item, newBalance: this.getBalance(guildId, userId) };
+        return { success: true, item, newBalance: await this.getBalance(guildId, userId) };
     }
 
     // ════════════════════════════════════
     // 📊 EMBED'LER
     // ════════════════════════════════════
 
-    getBalanceEmbed(userId, guildId, memberOrUser) {
-        const balance = this.getBalance(guildId, userId);
-        const streak = db.fetch(`eco_streak_${guildId}_${userId}`) || 0;
+    async getBalanceEmbed(userId, guildId, memberOrUser) {
+        const balance = await this.getBalance(guildId, userId);
+        const streak = (await db.fetch(`eco_streak_${guildId}_${userId}`)) || 0;
         const user = memberOrUser?.user || memberOrUser;
 
         return new EmbedBuilder()

@@ -20,7 +20,7 @@ module.exports = {
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Yetersiz Yetki!**\n\n${emojis.static.shield} Rolleri Yönet yetkiniz bulunmuyor.`)
                 .setTimestamp();
-            return interaction.reply({ embeds: [noPermEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [noPermEmbed], flags: 64 });
         }
 
         const roleName = interaction.options.getString('isim');
@@ -59,7 +59,7 @@ ${emojis.decorations.starLine}
                 .setColor("#ED4245")
                 .setDescription(`${emojis.error} **Hata!**\n\nRol oluşturulamadı. Geçerli bir renk kodu girdiğinizden emin olun.\n\n${emojis.static.info} Örnek: \`#FF0000\`, \`Red\`, \`Blue\``)
                 .setTimestamp();
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     },
 };
