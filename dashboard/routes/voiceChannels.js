@@ -4,6 +4,7 @@
  */
 
 const { body, validationResult } = require('express-validator');
+const { ChannelType } = require('discord.js');
 
 module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
     return {
@@ -16,23 +17,53 @@ module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
                     const guild = req.guild;
                     
                     // Get all voice channels
-                    const voiceChannels = guild.channels.cache
-                        .filter(ch => ch.isVoice())
-                        .map(ch => ({
-                            id: ch.id,
-                            name: ch.name,
-                            bitrate: ch.bitrate,
-                            userLimit: ch.userLimit,
-                            parentId: ch.parentId,
-                            position: ch.position,
-                            members: ch.members.size,
-                            createdAt: ch.createdAt
-                        }));
+                    const voiceChannels = guild.channels.cache.filter(ch => ch.type === ChannelType.GuildVoice);
+
+                    // Voice channel üyeleri çoğu zaman cache'te tam dolu olmaz.
+                    // Bu yüzden mevcut üyeleri çekip (fetch) hem sayıyı hem de bir preview'ı döndürüyoruz.
+                    const data = await Promise.all(
+                        voiceChannels.map(async (ch) => {
+                            let membersCollection = null;
+                            try {
+                                membersCollection = await ch.members.fetch();
+                            } catch (e) {
+                                // Fallback: mevcut cache ile devam et
+                                membersCollection = ch.members.cache;
+                            }
+
+                            const membersArr = [...membersCollection.values()];
+                            const membersCount = membersCollection?.size ?? membersArr.length;
+
+                            const membersPreview = membersArr
+                                .slice(0, 10)
+                                .map(m => {
+                                    const user = m.user;
+                                    return {
+                                        id: m.id,
+                                        tag: user?.tag,
+                                        username: user?.username,
+                                        displayName: m.displayName
+                                    };
+                                });
+
+                            return {
+                                id: ch.id,
+                                name: ch.name,
+                                bitrate: ch.bitrate,
+                                userLimit: ch.userLimit,
+                                parentId: ch.parentId,
+                                position: ch.position,
+                                membersCount,
+                                members: membersPreview,
+                                createdAt: ch.createdAt
+                            };
+                        })
+                    );
 
                     res.json({
                         success: true,
-                        data: voiceChannels,
-                        count: voiceChannels.length
+                        data,
+                        count: data.length
                     });
                 } catch (error) {
                     console.error('[VOICE] List error:', error.message);
@@ -66,7 +97,7 @@ module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
                     // Create channel
                     const channel = await guild.channels.create({
                         name: name,
-                        type: 2, // Voice channel type
+                        type: ChannelType.GuildVoice,
                         bitrate: bitrate || 64000,
                         userLimit: userLimit || 0,
                         parent: parentId || null
@@ -115,7 +146,7 @@ module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
                     const guild = req.guild;
 
                     const channel = guild.channels.cache.get(channelId);
-                    if (!channel || !channel.isVoice()) {
+                    if (!channel || channel.type !== ChannelType.GuildVoice) {
                         return res.status(404).json({
                             success: false,
                             error: 'Ses kanalı bulunamadı'
@@ -162,7 +193,7 @@ module.exports = (client, ensureAuthenticated, checkGuildAdmin) => {
                     const guild = req.guild;
 
                     const channel = guild.channels.cache.get(channelId);
-                    if (!channel || !channel.isVoice()) {
+                    if (!channel || channel.type !== ChannelType.GuildVoice) {
                         return res.status(404).json({
                             success: false,
                             error: 'Ses kanalı bulunamadı'

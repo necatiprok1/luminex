@@ -355,66 +355,25 @@ module.exports = (client) => {
     });
 
     // 🌟 Ana Sayfa (Dashboard Home - Authenticated)
-    app.get('/dashboard', ensureAuthenticated, async (req, res) => {
-        try {
-            // İstatistikler (Discord client API'den)
-            const servers = client.guilds.cache.size;
-            const users = client.guilds.cache.reduce((a, b) => a + b.memberCount, 0); // This is total members, not unique users
-            const channels = client.guilds.cache.reduce((a, b) => a + b.channels.cache.size, 0);
-
-            // Sistem Bilgileri
-            const uptime = moment.duration(client.uptime).format(" D [gün], H [saat], m [dakika], s [saniye]");
-            const memoryUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
-            const nodeVersion = process.version;
-            const platform = process.platform;
-            const cpuCount = os.cpus().length;
-
-            // AI Sağlık Kontrolü
-            const aiHealth = {
-                openRouter: !!process.env.OPENROUTER_API_KEY,
-                ollama: false,
-                gemini: !!process.env.GEMINI_API_KEY,
-                mongo: mongoose.connection.readyState === 1
-            };
-
-            // Ollama check (non-blocking) - Use URL from process.env if available
-            try {
-                const ollamaUrl = process.env.OLLAMA_URL || 'http://host.docker.internal:11434';
-                const resp = await fetch(ollamaUrl + '/api/tags').catch(() => null);
-                aiHealth.ollama = !!(resp && resp.ok);
-            } catch (e) { }
-
-            // AI Analiz İstatistikleri (MongoDB'den)
-            let aiMsgCount = 0;
-            if (mongoose.connection.readyState === 1) {
-                aiMsgCount = await Conversation.countDocuments();
-            }
-
-            res.render('index', {
-                bot: client.user,
-                stats: {
-                    guilds: servers, // Renamed from 'servers' to 'guilds' for consistency
-                    users: users,
-                    channels: channels,
-                    aiMsgCount: aiMsgCount,
-                    commands: 45 // Örnek değer
-                },
-                system: { uptime, memoryUsage, nodeVersion, platform, cpuCount, botStatus: client.presence.status },
-                aiHealth,
-                user: {
-                    username: req.session.username,
-                    avatar: req.session.avatar
-                }
-            });
-        } catch (error) {
-            console.error("Dashboard Error (Home):", error);
-            res.status(500).send("Dashboard yüklenirken hata oluştu.");
-        }
+    // Kullanıcı akışı artık sadece `/servers` + `/server/:id` üzerinden ilerliyor.
+    app.get('/dashboard', ensureAuthenticated, (req, res) => {
+        res.redirect('/servers');
     });
 
     // 🌟 Sunucu Yönetim Sayfası
     app.get('/servers', ensureAuthenticated, async (req, res) => {
         try {
+            // Check if bot is ready
+            if (!client.isReady()) {
+                console.warn('[DASHBOARD] ⚠️ Bot is not ready yet for /servers');
+                return res.status(503).render('error', {
+                    status: 503,
+                    message: 'Bot hazırlanıyor, lütfen biraz sonra tekrar deneyin',
+                    actionUrl: '/',
+                    actionText: 'Geri Dön'
+                });
+            }
+
             // Get user's guilds where they are admin
             const config = require('../config.json');
             const userGuilds = [];
@@ -566,9 +525,22 @@ module.exports = (client) => {
             body('proactiveMod').optional().trim().escape(),
             body('levelMod').optional().trim().escape(),
             body('logMod').optional().trim().escape(),
-            body('otorol').optional().trim().isMongoId(),
-            body('welcomeChannel').optional().trim().isMongoId(),
-            body('logChannel').optional().trim().isMongoId()
+            // Discord snowflake (17-20 digit) + reset için `none`
+            body('otorol').optional().trim().custom((value) => {
+                if (value === 'none') return true;
+                if (!/^\d{17,20}$/.test(value)) throw new Error('Geçersiz rol ID');
+                return true;
+            }),
+            body('welcomeChannel').optional().trim().custom((value) => {
+                if (value === 'none') return true;
+                if (!/^\d{17,20}$/.test(value)) throw new Error('Geçersiz kanal ID');
+                return true;
+            }),
+            body('logChannel').optional().trim().custom((value) => {
+                if (value === 'none') return true;
+                if (!/^\d{17,20}$/.test(value)) throw new Error('Geçersiz kanal ID');
+                return true;
+            })
         ],
         async (req, res) => {
             try {
@@ -582,69 +554,83 @@ module.exports = (client) => {
                 const guild = req.guild;
                 if (!guild) return res.status(404).json({ success: false, message: 'Guild not found' });
 
+                const assertDb = async (operation, action) => {
+                    try {
+                        const result = await operation;
+                        if (result === false) {
+                            console.warn(`[DASHBOARD] ⚠️ Database operation may have failed: ${action} (returned false)`);
+                        }
+                        return result;
+                    } catch (error) {
+                        console.error(`[DASHBOARD] ❌ Database error for ${action}:`, error.message);
+                        // Don't throw - allow operation to continue with logged warning
+                        return null;
+                    }
+                };
+
                 // Kufur Engel Güncelleme
                 if (req.body.kufurEngel === 'on') {
-                    await db.set(`kufurengel_${guildId}`, true);
+                    await assertDb(db.set(`kufurengel_${guildId}`, true), 'kufurengel');
                 } else {
-                    await db.delete(`kufurengel_${guildId}`);
+                    await assertDb(db.delete(`kufurengel_${guildId}`), 'kufurengel');
                 }
 
                 // Reklam Engel Güncelleme
                 if (req.body.reklamEngel === 'on') {
-                    await db.set(`reklamengel_${guildId}`, true);
+                    await assertDb(db.set(`reklamengel_${guildId}`, true), 'reklamengel');
                 } else {
-                    await db.delete(`reklamengel_${guildId}`);
+                    await assertDb(db.delete(`reklamengel_${guildId}`), 'reklamengel');
                 }
 
                 // AI Mod Güncelleme
                 if (req.body.aiMod === 'on') {
-                    await db.set(`aimod_${guildId}`, true);
+                    await assertDb(db.set(`aimod_${guildId}`, true), 'aimod');
                 } else {
-                    await db.set(`aimod_${guildId}`, false);
+                    await assertDb(db.set(`aimod_${guildId}`, false), 'aimod');
                 }
 
                 // Proaktif Mod Güncelleme
                 if (req.body.proactiveMod === 'on') {
-                    await db.set(`proaktif_mod_${guildId}`, true);
+                    await assertDb(db.set(`proaktif_mod_${guildId}`, true), 'proaktif_mod');
                 } else {
-                    await db.set(`proaktif_mod_${guildId}`, false);
+                    await assertDb(db.set(`proaktif_mod_${guildId}`, false), 'proaktif_mod');
                 }
 
                 // Seviye Sistemi Güncelleme
                 if (req.body.levelMod === 'on') {
-                    await db.set(`module_${guildId}_seviye-sistemi`, true);
+                    await assertDb(db.set(`module_${guildId}_seviye-sistemi`, true), 'level module');
                 } else {
-                    await db.set(`module_${guildId}_seviye-sistemi`, false);
+                    await assertDb(db.set(`module_${guildId}_seviye-sistemi`, false), 'level module');
                 }
 
                 // Log Sistemi Güncelleme
                 if (req.body.logMod === 'on') {
-                    await db.set(`module_${guildId}_log-sistemi`, true);
+                    await assertDb(db.set(`module_${guildId}_log-sistemi`, true), 'log module');
                 } else {
-                    await db.set(`module_${guildId}_log-sistemi`, false);
+                    await assertDb(db.set(`module_${guildId}_log-sistemi`, false), 'log module');
                 }
 
                 // Otorol Güncelleme
                 if (req.body.otorol && req.body.otorol !== 'none') {
-                    await db.set(`otorol_${guildId}`, req.body.otorol);
+                    await assertDb(db.set(`otorol_${guildId}`, req.body.otorol), 'otorol');
                 } else {
-                    await db.delete(`otorol_${guildId}`);
+                    await assertDb(db.delete(`otorol_${guildId}`), 'otorol');
                 }
 
                 // Hoşgeldin Kanalı Güncelleme
                 if (req.body.welcomeChannel && req.body.welcomeChannel !== 'none') {
-                    await db.set(`hosgeldinkanal_${guildId}`, req.body.welcomeChannel);
-                    await db.set(`module_${guildId}_hosgeldin-sistemi`, true); // Modülü de aktif et
+                    assertDb(await db.set(`hosgeldinkanal_${guildId}`, req.body.welcomeChannel), 'hosgeldinkanal');
+                    assertDb(await db.set(`module_${guildId}_hosgeldin-sistemi`, true), 'hosgeldin module'); // Modülü de aktif et
                 } else {
-                    await db.delete(`hosgeldinkanal_${guildId}`);
-                    await db.delete(`module_${guildId}_hosgeldin-sistemi`);
+                    assertDb(await db.delete(`hosgeldinkanal_${guildId}`), 'hosgeldinkanal');
+                    assertDb(await db.delete(`module_${guildId}_hosgeldin-sistemi`), 'hosgeldin module');
                 }
 
                 // Log Kanalı Güncelleme
                 if (req.body.logChannel && req.body.logChannel !== 'none') {
-                    await db.set(`log_channel_${guildId}`, req.body.logChannel);
+                    assertDb(await db.set(`log_channel_${guildId}`, req.body.logChannel), 'log_channel');
                 } else {
-                    await db.delete(`log_channel_${guildId}`);
+                    assertDb(await db.delete(`log_channel_${guildId}`), 'log_channel');
                 }
 
                 // Başarılı döngü

@@ -62,6 +62,17 @@ const checkGuildAdmin = (client) => {
             return res.status(401).json({ error: 'Authenticated required' });
         }
 
+        // Check if bot is ready
+        if (!client.isReady()) {
+            console.warn('[DASHBOARD] ⚠️ Bot is not ready yet. Returning 503 Service Unavailable');
+            return res.status(503).render('error', {
+                status: 503,
+                message: 'Bot hazırlanıyor, lütfen biraz sonra tekrar deneyin',
+                actionUrl: '/servers',
+                actionText: 'Tekrar Dene'
+            });
+        }
+
         const guildId = req.params.id;
         const userId = req.session.userId;
 
@@ -71,7 +82,7 @@ const checkGuildAdmin = (client) => {
                 return res.status(404).render('error', {
                     status: 404,
                     message: 'Sunucu bulunamadı',
-                    actionUrl: '/dashboard/servers',
+                    actionUrl: '/servers',
                     actionText: 'Sunucuları Görüntüle'
                 });
             }
@@ -82,7 +93,7 @@ const checkGuildAdmin = (client) => {
                 return res.status(403).render('error', {
                     status: 403,
                     message: 'Bu sunucunun üyesi değilsiniz',
-                    actionUrl: '/dashboard/servers',
+                    actionUrl: '/servers',
                     actionText: 'Sunucuları Görüntüle'
                 });
             }
@@ -93,7 +104,7 @@ const checkGuildAdmin = (client) => {
                 return res.status(403).render('error', {
                     status: 403,
                     message: 'Bu sunucuyu yönetmek için yönetici izniniz olması gerekmektedir',
-                    actionUrl: '/dashboard/servers',
+                    actionUrl: '/servers',
                     actionText: 'Sunucuları Görüntüle'
                 });
             }
@@ -103,11 +114,11 @@ const checkGuildAdmin = (client) => {
             req.member = member;
             next();
         } catch (error) {
-            console.error('[AUTH] Sunucu kontrol hatası:', error);
+            console.error('[AUTH] Sunucu kontrol hatası:', error.message);
             return res.status(500).render('error', {
                 status: 500,
-                message: 'Sunucu kontrolü sırasında bir hata oluştu',
-                actionUrl: '/dashboard/servers',
+                message: 'Sunucu kontrolü sırasında bir hata oluştu: ' + error.message,
+                actionUrl: '/servers',
                 actionText: 'Geri Dön'
             });
         }

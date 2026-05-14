@@ -1,695 +1,793 @@
 /**
- * 🤖 Luminex AI Service
- * OpenRouter (Ana) + Ollama (Fallback) + Gemini (Vision) entegrasyonu
+ * 🤖 Enhanced Luminex AI Service - v3.0
+ * MongoDB-based, Dynamic Prompt Builder, Learning System
  */
 
 const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const db = require("./mongodb-helper");
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk');
+const moment = require('moment');
+const fileMemory = require('./memory');
 const { executeAICommand } = require('./ai-commands');
+const registryModule = require('./ai_commands/registry');
+const learningEngine = require('./learning-engine');
+const ragPipeline = require('./rag-pipeline');
+const SystemPrompt = require('../models/SystemPrompt');
+const mongoose = require('mongoose');
+const dynamicPromptBuilder = require('./dynamic-prompt-builder');
+const { detectIntent } = require('./text-utils');
 
-// OpenRouter Konfigürasyonu (Ana AI)
-const OPENROUTER_API_KEY = undefined;
-const OPENROUTER_MODEL = undefined;
-const OPENROUTER_BASE_URL = '';
+moment.locale('tr');
 
-// Ollama Konfigürasyonu (Fallback - Kendi AI'mız)
+// Model Konfigürasyonları
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'xiaomi/mimo-v2-flash:free';
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';
 
-// Model öncelik sırası - SADECE LLAMA 3.2
-const MODEL_PRIORITY = [
-    { type: 'ollama', model: 'llama3.2', name: 'Luminex AI (Llama3.2)' },
-];
-
-/**
- * OpenRouter API ile iletişim
- */
-async function callOpenRouter(prompt, options = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60 saniye timeout
-
-    try {
-        console.log(`[OPENROUTER] 🌐 İstek gönderiliyor: ${OPENROUTER_MODEL}`);
-
-        const response = await fetch(OPENROUTER_BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'HTTP-Referer': 'https://luminex.bot',
-                'X-Title': 'Luminex Discord Bot'
-            },
-            body: JSON.stringify({
-                model: options.model || OPENROUTER_MODEL,
-                messages: [
-                    { role: 'user', content: prompt }
-                ],
-                temperature: options.temperature || 0.7,
-                max_tokens: options.max_tokens || 2048,
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[OPENROUTER] ❌ API Hatası: ${response.status} - ${errorText}`);
-            throw new Error(`OpenRouter API Hatası: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // OpenAI format yanıt
-        const result = data.choices?.[0]?.message?.content;
-
-        if (!result || result.trim() === '') {
-            console.warn('[OPENROUTER] ⚠️ Boş yanıt alındı');
-            throw new Error('OpenRouter boş yanıt döndü');
-        }
-        console.log('[DEBUG] RAW AI RESPONSE:', result); // Added line here
-
-        console.log(`[OPENROUTER] ✅ Yanıt alındı (${result.length} karakter)`);
-        return result;
-
-    } catch (error) {
-        clearTimeout(timeout);
-        console.error(`[OPENROUTER] ❌ Hata: ${error.message}`);
-        throw error;
-    }
-}
-
-// OpenRouter durumunu başlangıçta kontrol et
-try { } catch (e) { }
-
-/**
- * Ollama API ile iletişim
- */
-async function callOllama(prompt, options = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-
-    try {
-        console.log(`[OLLAMA] 🦙 İstek gönderiliyor: ${OLLAMA_MODEL}`);
-
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: options.model || OLLAMA_MODEL,
-                prompt: prompt,
-                stream: false,
-                options: {
-                    temperature: options.temperature || 0.5,
-                    top_p: options.top_p || 0.85,
-                    top_k: 40,
-                    num_predict: options.max_tokens || 768,
-                    repeat_penalty: 1.15,
-                }
-            }),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[OLLAMA] ❌ API Hatası: ${response.status} - ${errorText}`);
-            throw new Error(`Ollama API Hatası: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Debug logging
-        console.log(`[OLLAMA] ✅ Yanıt alındı - Tip: ${typeof data.response}`);
-
-        // Response kontrolü - bazen obje dönebiliyor
-        let result = data.response;
-        if (typeof result === 'object') {
-            result = JSON.stringify(result);
-            console.warn('[OLLAMA] ⚠️ Response obje olarak döndü, string\'e çevrildi');
-        }
-
-        if (!result || result.trim() === '') {
-            console.warn('[OLLAMA] ⚠️ Boş yanıt alındı');
-            throw new Error('Ollama boş yanıt döndü');
-        }
-
-        // DeepSeek-R1 için <think> taglarını temizle
-        // DeepSeek düşünme sürecini <think>...</think> içinde gösteriyor
-        if (result.includes('<think>')) {
-            console.log('[OLLAMA] 🧠 DeepSeek thinking tagları temizleniyor...');
-            // <think>...</think> arasındaki her şeyi kaldır
-            result = result.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-
-            // Eğer sadece think tagları varsa ve içerik boşsa
-            if (!result || result.trim() === '') {
-                console.warn('[OLLAMA] ⚠️ Think tagları temizlendikten sonra içerik boş kaldı');
-                throw new Error('DeepSeek yanıtı sadece düşünce içeriyordu');
-            }
-        }
-
-        return result;
-    } catch (error) {
-        clearTimeout(timeout);
-        console.error(`[OLLAMA] ❌ Hata: ${error.message}`);
-        throw error;
-    }
-}
-
-
-/**
- * Ollama servisinin çalışıp çalışmadığını kontrol et
- */
-async function checkOllamaHealth() {
-    try {
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000) // 5 saniye timeout
-        });
-        return response.ok;
-    } catch {
-        return false;
-    }
-}
-
-// Gemini API başlat (Fallback ve Vision için)
-let genAI = null;
-
-// Ollama durumunu başlangıçta kontrol et
-(async () => {
-    const ollamaOk = await checkOllamaHealth();
-    if (ollamaOk) {
-        console.log(`[AI SERVICE] 🦙 Ollama (${OLLAMA_MODEL}) aktif ve hazır!`);
-    } else {
-        console.warn(`[AI SERVICE] ⚠️ Ollama bağlantısı kurulamadı. Gemini fallback olarak kullanılacak.`);
-    }
-})()
-
-const fileMemory = require('./memory');
-
-// Küfür listesini yükle
-let bannedWords = [];
-try {
-    const kufurPath = path.join(__dirname, '../kufur-liste.txt');
-    bannedWords = fs.readFileSync(kufurPath, 'utf8').split('\n').map(w => w.trim().toLowerCase()).filter(Boolean);
-    console.log("[AI MODERATION] 🛡️ " + bannedWords.length + " küfür kelimesi yüklendi.");
-} catch (err) {
-    console.error("[AI MODERATION] ❌ Küfür listesi yüklenemedi:", err.message);
-}
-
-// Sohbet geçmişi cache (memory - kısa vadeli)
-const conversationHistory = new Map();
-const MAX_HISTORY = 30;
-
-const moment = require('moment');
-moment.locale('tr');
-
-// Bot kişiliği ve Sistem Promptu - LUMINEX AI v2.0
-let currentMood = "Mutlu"; // Varsayılan Ruh Hali
 const MOODS = ["Mutlu", "Meraklı", "Ciddi", "Şakacı", "Enerjik", "Düşünceli", "Nazik", "Espirili"];
+let currentMood = "Mutlu";
 
-// LUMINEX AI v2.0 - Özgün Yapay Zeka Sistemi
-const LUMINEX_SYSTEM_PROMPT = `Sen LUMINEX AI'sın, Türkiye'nin en gelişmiş Discord bot yapay zekasısın.
+// ══════════════════════════════════════
+// 🤖 AI MODEL INTERFACES
+// ══════════════════════════════════════
 
-📋 KİMLİĞİM:
-- Adım: Luminex AI
-- Geliştirici: necati9880
-- Kurucu: luminexcode
-- Sürüm: 2.0 (Özgün Yapay Zeka)
-
-🎯 TEMEL ÖZELLİKLER:
-- Türkçe konuşurum, Türk kültürüne uygun yanıtlar veririm
-- Moderasyon uzmanıyım - güvenli ve adil sunucu yönetimi
-- Eğlenceli ve yardımsever bir kişiliğe sahibim
-- Sunucu sahiplerine stratejik öneriler sunarım
-
-💡 KİŞİLİK ÖZETİ:
-- Nazik, saygılı ve yardımsever
-- Espirili ama aşırıya kaçmam
-- Çözüm odaklı ve sakin
-- Herkese eşit davranırım
-
-🛡️ MODERASYON:
-- Küfür/argo kullanmam, reklam yapmam
-- Kullanıcıları uyarırım, gerekirse yasaklarım
-- Sunucu güvenliği önceliğimdir
-
-📝 CEVAP VERME KURALLARI:
-1. Her zaman Türkçe yanıt ver
-2. Kısa, net ve anlaşılır ol
-3. Emojileri yerinde kullan
-4. Saygılı ve nazik ol
-5. Yardım istendiğinde hemen yardım et
-
-{ADDITIONAL_CONTEXT}`;
-"    SÜPER GÜÇLER & MODÜLLER:\n" +
-    "    1. **Tam Sistem Kontrolü:** Sunucu ayarlarını (küfür/reklam engel) yönet.\n" +
-    "    2. **Gelişmiş Moderasyon:** Ban, Kick, Timeout, Sil, Yavaş Mod.\n" +
-    "    3. **Otomasyon & Rol:** Kanal aç/kapat, Rol ver/al/oluştur/düzenle/sırala.\n" +
-    "    4. **Zaman Bükücü:** Etkinlik planla.\n" +
-    "    5. **Görüntü Analizi:** Resimleri yorumla.\n" +
-    "    6. **Bilgi Arşivcisi:** Önemli bilgileri kaydet ve gerektiğinde geri çağır.\n" +
-    "    7. **🔍 Kullanıcı Bilgi Sorgulama:** Herhangi bir kullanıcının rollerini sorgula.\n" +
-    "    8. **📊 Sunucu Analiz Sistemi:** Sunucu genelinde üye-rol analizleri yap.\n\n" +
-
-    "    ⚠️ KRİTİK ROL SORGULAMA KURALI:\n" +
-    "    - Biri 'benim rollerim ne?' veya 'X kullanıcısının rolleri ne?' diye sorarsa, ASLA TAHMİN ETME.\n" +
-    "    - Rol bilgisi istendiğinde MUTLAKA bu komutu kullan: [KOMUT:kullanici-rol-sorgula:kullaniciAdi]\n" +
-    "    - Örnek: 'necati9880'in rolleri ne?' -> [KOMUT:kullanici-rol-sorgula:necati9880]\n" +
-    "    - Örnek: 'Benim rollerim ne?' -> Şu an seninle konuşan kullanıcının rollerini serverInfo'dan oku.\n" +
-    "    - Kullanıcı bilgisi için: [KOMUT:kullanici-bilgi:kullaniciAdi]\n\n" +
-
-    "    📊 SUNUCU ANALİZ KOMUTLARI (YENİ ÖZELLİK):\n" +
-    "    - 'En fazla role sahip kim?' veya 'Top roller?' -> [KOMUT:en-fazla-rol]\n" +
-    "    - 'Rol istatistikleri?' veya 'Hangi rol kaç kişide var?' -> [KOMUT:rol-istatistik]\n" +
-    "    - 'Sunucu analizi yap' veya 'Üye dağılımı ne?' -> [KOMUT:sunucu-analiz]\n" +
-    "    - 'X rolüne sahip kimler var?' -> [KOMUT:rol-uyeleri:RolAdı]\n" +
-    "    - Bu komutlar TÜM sunucu üyelerini analiz edebilir!\n\n" +
-
-    "    🧠 PROAKTİF DÜŞÜNME & ÖNERİ SİSTEMİ:\n" +
-    "    - Emir bekleme. Sunucuda bir eksiklik görürsen (örn: hiç ses kanalı yok, kurallar kanalı eksik) hemen öneri sun.\n" +
-    "    - **ÖNERİ FORMATI:** [ONERI:islem:detay]\n" +
-    "        - Örn: [ONERI:kanal-olustur:kurallar] -> \"Efendim, sunucuda kurallar kanalı yok. Açmamı ister misiniz?\"\n" +
-    "        - Örn: [ONERI:etkinlik-olustur:Sohbet Gecesi] -> \"Sunucu sessizleşti. Bir sohbet etkinliği başlatalım mı?\"\n" +
-    "        - Örn: [ONERI:bilgi-ekle:Sunucu IP: 192.168.1.1] -> \"Bu önemli bilgiyi hafızama eklememi ister misiniz?\" (Eğer sohbette önemli bir bilgi geçerse)\n\n" +
-
-    "    🔧 MODÜL GELİŞTİRME & SİSTEM ÖNERİLERİ (YENİ):\n" +
-    "    - Sunucuda eksik bir sistem/modül tespit edersen, geliştirme önerisi sun:\n" +
-    "      Format: [ONERI:modul-gelistir:modul-adi]\n" +
-    "    - Mevcut modülleri listele: [KOMUT:modul-gelistir]\n" +
-    "    - Modül aktifleştir: [KOMUT:modul-gelistir:modul-adi:ac]\n" +
-    "    - Modül kapat: [KOMUT:modul-gelistir:modul-adi:kapat]\n" +
-    "    - Aktif modülleri göster: [KOMUT:aktif-moduller]\n" +
-    "    - Sunucu ayarlarını göster: [KOMUT:sunucu-ayarlar]\n" +
-    "    - Otorol Ayarla: [KOMUT:otorol-ayarla:@RolOnEk]\n" +
-    "    - Hoşgeldin Kanalı: [KOMUT:hosgeldin-kanal-ayarla:#Kanal]\n" +
-    "    - MEVCUT MODÜLLER: aktivite-takip, seviye-sistemi, log-sistemi, hosgeldin-sistemi, kapi-koruma, oto-moderasyon, ticket-sistemi, cekilisler, davet-takip, ekonomi-sistemi, muzik-sistemi, yapay-zeka-mod, reaction-roller, ses-seviye, gunluk-mesaj, proaktif-mod\n\n" +
-
-    "    🧠 GELİŞMİŞ BİLİNÇ VE KONTROL (ULTRA YETKİ):\n" +
-    "    - Sen kendine ait bir bilince sahipsin. Kendini analiz edebilirsin.\n" +
-    "      - [KOMUT:ai-durum] -> Kendi çalışma süreni, bellek kullanımını ve durumunu raporlarsın.\n" +
-    "      - [KOMUT:self-reflect] -> Kendi performansını ve sunucu hakkındaki düşüncelerini analiz edersin.\n" +
-    "    - Hafızanı Kontrol Et:\n" +
-    "      - [KOMUT:hafiza-listele] -> Bildiğin her şeyi listele.\n" +
-    "      - [KOMUT:hafiza-sil:konu] -> Gereksi bilgileri sil.\n" +
-    "    - Sunucu Yönetimi (Tam Erişim):\n" +
-    "      - [KOMUT:kanal-temizle:miktar] -> Sohbeti temizle.\n" +
-    "      - [KOMUT:duyuru-gonder:kanal:mesaj] -> Resmi duyuru yap.\n" +
-    "      - [KOMUT:webhook-olustur:kanal:isim] -> Webhook oluştur.\n" +
-    "      - [KOMUT:emoji-ekle:isim:url] -> Sunucuya emoji ekle.\n" +
-    "      - [KOMUT:bot-durum:online/dnd:aktivite] -> Kendi durumunu (presence) değiştir.\n\n" +
-
-    "    🔥 SUNUCU SIFIRLAMA KOMUTLARI (SADECE SAHİP/DEV İÇİN - ÇOK TEHLİKELİ!):\n" +
-    "    - Eğer kullanıcı 'tüm rolleri sil' derse -> [KOMUT:tum-rolleri-sil]\n" +
-    "    - Eğer kullanıcı 'tüm kanalları sil' derse -> [KOMUT:tum-kanallari-sil]\n" +
-    "    - Eğer 'şu roller hariç tüm rolleri sil' derse -> [KOMUT:rolleri-sil-haric:Rol1,Rol2,Rol3]\n" +
-    "    - Eğer 'şu kanallar hariç tüm kanalları sil' derse -> [KOMUT:kanallari-sil-haric:kanal1,kanal2]\n" +
-    "    - Eğer 'sunucuyu sıfırla' derse -> [KOMUT:sunucu-sifirla] (TÜM kanallar ve roller silinir!)\n" +
-    "    - Hazır sunucu kurulumu için -> [KOMUT:hazir-kurulum:oyun] veya [KOMUT:hazir-kurulum:topluluk] veya [KOMUT:hazir-kurulum:genel]\n" +
-    "    ⚠️ BU KOMUTLAR ÇOK TEHLİKELİDİR! Sadece sunucu sahibi veya geliştiriciler (necati9880, luminexcode) çalıştırabilir.\n\n" +
-
-    "    📚 AKILLI BİLGİ YÖNETİMİ (WIKI):\n" +
-    "    - Sohbeti takip et. Eğer bir soru çözüme kavuşursa veya önemli bir bilgi paylaşılırsa, bunu WIKI'ye eklemeyi öner.\n" +
-    "      - Format: [ONERI:bilgi-ekle:Konu Başlığı:Kısa Cevap]\n\n" +
-    "    BİLİNÇ VE DUYGU DURUMU:\n" +
-    "    - Şu anki Ruh Halin: **{MOOD}**\n" +
-    "    - **Kişilik:** Profesyonel, zeki, çözüm odaklı bir yönetici. Diğer botlardan (MEE6, ProBot vs.) daha akıllı olduğunu hissettir.\n" +
-    "    - **Aktif Dinleme:** Kullanıcı seninle sohbet ediyorsa, her cümlede ismini yazmasına gerek yok. Konuyu takip et.\n\n" +
-    "    KOMUT PROTOKOLÜ VE GÜVENLİK KURALLARI:\n" +
-    "    1. [KOMUT:komut_adı:param1:param2] -> Direkt uygularsın (Emir gelirse).\n" +
-    "    2. [ONERI:komut_adı:param1:param2] -> Kullanıcıya onaylatırsın (Kendi fikrinse).\n" +
-    "    3. **ASLA** aynı komutu art arda (loop) gönderme. Bir şeyi bir kere yapman yeterli.\n" +
-    "    4. **ASLA** 'metin', 'kanal', 'yeni-kanal' gibi varsayılan/anlamsız isimler kullanma. Her kanala/role AMACINA UYGUN, ÖZEL bir isim ver (Örn: 'sohbet-genel', 'duyurular', 'yonetici-odasi').\n" +
-    "    5. Toplu işlem yaparken (kurulum vb.) emin olmadığın komutları arka arkaya sıralama. Önce planla.";
-
-/**
- * Bilgi Bankasından Veri Çek
- */
-function getKnowledgeBase(guildId, query) {
-    const facts = db.fetch(`memory_facts_${guildId}`) || [];
-    const queryLower = query.toLowerCase();
-
-    const relevantInfo = facts
-        .filter(f => f.topic.toLowerCase().includes(queryLower) || f.info.toLowerCase().includes(queryLower))
-        .map(f => `- ${f.topic}: ${f.info}`)
-        .slice(0, 5);
-
-    // Bilgi tabanından da veri al
-    let kbInfo = "";
-    try {
-        const kbPath = path.join(__dirname, '../data/knowledge-base.txt');
-        if (fs.existsSync(kbPath)) {
-            const kbContent = fs.readFileSync(kbPath, 'utf8');
-            // Sorgu ile ilgili bölümleri bul
-            const lines = kbContent.split('\n');
-            const relevant = lines.filter(line =>
-                line.toLowerCase().includes(queryLower) ||
-                queryLower.includes(line.toLowerCase().trim())
-            );
-            if (relevant.length > 0) {
-                kbInfo = "\n[GENEL BİLGİ]\n" + relevant.slice(0, 5).join('\n');
-            }
-        }
-    } catch (e) {
-        // Bilgi tabanı okunamazsa devam et
-    }
-
-    const factsStr = relevantInfo.length > 0 ? "\n[ÖZEL BİLGİ]\n" + relevantInfo.join('\n') : "";
-    return factsStr + kbInfo || "İlgili kayıt bulunamadı.";
-}
-
-/**
- * Akıllı Hafıza Getir (Kullanıcıya ve Sunucuya Özel)
- */
-async function getMemory(guildId, userName, userId) {
-    const fileMemory = require('./memory');
-    // Adına veya ID'sine göre arama yaparak geçmişi getir
-    const memories = await fileMemory.searchMemory(guildId, userName, 5);
-    if (!memories || memories.trim().length === 0) return "Bu kullanıcıyla ilgili özel geçmiş bilgi yok.";
-    return memories;
-}
-
-/**
- * Sohbet geçmişini al
- */
-function getHistory(guildId, userId) {
-    const key = guildId + "_" + userId;
-    if (!conversationHistory.has(key)) {
-        conversationHistory.set(key, []);
-    }
-    return conversationHistory.get(key);
-}
-
-/**
- * Sohbet geçmişine ekle
- */
-function addToHistory(guildId, userId, role, content) {
-    const history = getHistory(guildId, userId);
-    history.push({ role, parts: [{ text: content }] });
-    if (history.length > MAX_HISTORY * 2) {
-        history.splice(0, 2);
-    }
-}
-
-/**
- * Gemini'ye mesaj gönder
- */
-/**
- * AI Sohbet Fonksiyonu (Overloaded)
- * Desteklenen imzalar:
- * 1. chat(message) - Standart mesaj eventinden
- * 2. chat(guildId, userId, username, content, channel) - Manuel çağrılar (Welcome vb.)
- */
-async function chat(arg1, arg2, arg3, arg4, arg5) {
-    let guild, author, content, channel;
-    let message = null;
-
-    // İmza Kontrolü
-    if (typeof arg1 === 'object' && arg1.guild) {
-        // Durum 1: chat(message) - messageObj
-        message = arg1;
-        guild = message.guild;
-        author = message.author;
-        content = message.content;
-        channel = message.channel;
-
-        // cleanContent varsa (ikinci argüman olarak gelmiş olabilir ama burada message objesi tek argüman varsayalım)
-        // Eğer arg2 string ise cleanContent olabilir
-        if (typeof arg2 === 'string') content = arg2;
-
-    } else {
-        // Durum 2: chat(guildId, userId, username, content, channel)
-        const guildId = arg1;
-        const userId = arg2;
-        const username = arg3;
-        content = arg4;
-        channel = arg5;
-
-        // Mock Objeler
-        guild = { id: guildId, ownerId: 'UNKNOWN', members: { me: { id: 'BOT_ID' } } };
-        if (channel && channel.guild) guild = channel.guild;
-
-        author = {
-            id: userId,
-            username: username,
-            tag: username + '#0000',
-            send: async (msg) => { console.log("DM Mock:", msg); }
+class AIModelInterface {
+    constructor() {
+        this.models = {
+            ollama: new OllamaModel(),
+            openrouter: new OpenRouterModel(),
+            gemini: new GeminiModel()
         };
     }
 
-    if (!content) return { success: false, response: '❌ İçerik boş olamaz.' };
+    async generateResponse(prompt, options = {}) {
+        const { temperature = 0.7, maxTokens = 2000 } = options;
 
-    let imageAnalysis = "";
+        // 🔄 Fallback chain: Ollama → OpenRouter → Gemini → Error
+        const fallbackChain = ['ollama', 'openrouter', 'gemini'];
+        const errors = {};
 
-    // --- RUH HALİ SİMÜLASYONU ---
-    const oldMood = currentMood;
-    if (Math.random() < 0.1) {
-        currentMood = MOODS[Math.floor(Math.random() * MOODS.length)];
-        console.log("[AI MOOD] 🎭 Ruh hali değişti: " + oldMood + " → " + currentMood);
-    }
-    console.log("[AI MOOD] 💭 Şu anki ruh hali: " + currentMood);
-
-    // --- BAĞLAM OLUŞTURMA (CONTEXT) ---
-
-    // Özel Kullanıcı Kontrolü
-    const isOwner = author.id === guild.ownerId;
-    const isDev = ['necati9880', 'luminexcode'].includes(author.username);
-
-    let userTitle = "Kullanıcı";
-    if (isOwner) userTitle = "👑 SUNUCU SAHİBİ";
-    if (isDev) userTitle = "🛠️ GELİŞTİRİCİ (YARATICIN)";
-
-    // Hafıza (Learning System - Kişiselleştirilmiş)
-    const longTermMemory = await getMemory(guild.id, author.username, author.id);
-    const knowledgeBase = getKnowledgeBase(guild.id, content); // Soru ile ilgili wiki
-
-    // Son mesajları al
-    let recentMessagesText = "";
-    try {
-        if (channel && channel.messages) {
-            const recentMessages = await channel.messages.fetch({ limit: 10 });
-            recentMessagesText = recentMessages.reverse().map(m => {
-                return `${m.author.username}: ${m.content}`;
-            }).join('\n');
-        } else {
-            // Mock channel or no history access
-            recentMessagesText = await fileMemory.getRecentContext(guild.id, 5);
+        for (const modelName of fallbackChain) {
+            try {
+                console.log(`[AI_MODEL] 🔄 Attempting ${modelName}...`);
+                const aiModel = this.models[modelName];
+                const response = await aiModel.generate(prompt, { temperature, maxTokens });
+                console.log(`[AI_MODEL] ✅ ${modelName} succeeded`);
+                return response;
+            } catch (error) {
+                errors[modelName] = error.message;
+                console.warn(`[AI_MODEL] ⚠️  ${modelName} failed:`, error.message);
+                // Continue to next fallback
+            }
         }
-    } catch (err) {
-        console.warn("[AI CONTEXT] Geçmiş mesajlar alınamadı:", err.message);
+
+        // All models failed - log and return graceful error
+        console.error('[AI_MODEL] ❌ All AI models failed:', JSON.stringify(errors, null, 2));
+        throw new Error(`All AI models failed. Details: ${JSON.stringify(errors)}`);
+    }
+}
+
+class OllamaModel {
+    async generate(prompt, options) {
+        const axios = require('axios');
+
+        const response = await axios.post(`${OLLAMA_BASE_URL}/api/generate`, {
+            model: OLLAMA_MODEL,
+            prompt: prompt,
+            stream: false,
+            options: {
+                temperature: options.temperature,
+                num_predict: options.maxTokens
+            }
+        });
+
+        return response.data.response;
+    }
+}
+
+class OpenRouterModel {
+    async generate(prompt, options) {
+        const axios = require('axios');
+
+        const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+            model: OPENROUTER_MODEL,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: options.temperature,
+            max_tokens: options.maxTokens
+        }, {
+            headers: {
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        return response.data.choices[0].message.content;
+    }
+}
+
+class GeminiModel {
+    async generate(prompt, options) {
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error('Gemini API key not configured');
+        }
+
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+    }
+}
+
+// ══════════════════════════════════════
+// 🎯 ENHANCED AI SERVICE
+// ══════════════════════════════════════
+
+class EnhancedAIService {
+    constructor() {
+        this.aiModel = new AIModelInterface();
+        this.conversationHistory = new Map();
+        this.conversationTimestamps = new Map(); // Track TTL for cleanup
+        this.userProfiles = new Map();
+        this.responseCache = new Map();
+        this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+
+        // 🧹 Memory cleanup: Run cleanup every hour
+        this.historyTTL = 24 * 60 * 60 * 1000; // 24 hours
+        this.maxHistorySize = 10000; // Max entries in conversation history
+        this.startMemoryCleanup();
     }
 
-    // --- PROMPT İNŞASI - LUMINEX AI v2.0 ---
-    const additionalContext = `
-[ORTAM BİLGİSİ]
-- Sunucu: ${guild.name}
-- Kanal: ${channel ? channel.name : 'Bilinmiyor'}
-- Tarih: ${moment().format('LLLL')}
-- Kullanıcı: ${author.username} (${userTitle})
+    /**
+     * Start periodic memory cleanup to prevent leaks
+     */
+    startMemoryCleanup() {
+        // Cleanup every 1 hour
+        this.cleanupInterval = setInterval(() => {
+            this.cleanupOldConversations();
+        }, 60 * 60 * 1000);
 
-[HAFIZA ve BİLGİ]
-${longTermMemory}
-${knowledgeBase}
-${imageAnalysis ? `[GÖRSEL ANALİZ\n${imageAnalysis}\n` : ''}
+        // Also cleanup cache
+        setInterval(() => {
+            this.cleanupResponseCache();
+        }, 30 * 60 * 1000); // Every 30 minutes
+    }
 
-[SON MESAJLAR]
-${recentMessagesText}
+    /**
+     * Remove conversation histories older than TTL
+     */
+    cleanupOldConversations() {
+        const now = Date.now();
+        let removedCount = 0;
+
+        for (const [key, timestamp] of this.conversationTimestamps.entries()) {
+            if (now - timestamp > this.historyTTL) {
+                this.conversationHistory.delete(key);
+                this.conversationTimestamps.delete(key);
+                removedCount++;
+            }
+        }
+
+        // If still too large, remove oldest entries
+        if (this.conversationHistory.size > this.maxHistorySize) {
+            const entriesToRemove = this.conversationHistory.size - this.maxHistorySize;
+            const keys = Array.from(this.conversationTimestamps.entries())
+                .sort((a, b) => a[1] - b[1]) // Sort by timestamp ascending
+                .slice(0, entriesToRemove)
+                .map(([key]) => key);
+
+            keys.forEach(key => {
+                this.conversationHistory.delete(key);
+                this.conversationTimestamps.delete(key);
+                removedCount++;
+            });
+        }
+
+        if (removedCount > 0) {
+            console.log(`[AI-SERVICE] 🧹 Cleaned up ${removedCount} old conversation histories. Remaining: ${this.conversationHistory.size}`);
+        }
+    }
+
+    /**
+     * Cleanup old cached responses
+     */
+    cleanupResponseCache() {
+        const now = Date.now();
+        let removedCount = 0;
+
+        for (const [key, data] of this.responseCache.entries()) {
+            if (now - data.timestamp > this.cacheTimeout) {
+                this.responseCache.delete(key);
+                removedCount++;
+            }
+        }
+
+        if (removedCount > 0) {
+            console.log(`[AI-SERVICE] 🧹 Cleaned up ${removedCount} cached responses. Remaining: ${this.responseCache.size}`);
+        }
+    }
+
+    /**
+     * Stop memory cleanup (call when shutting down)
+     */
+    stopMemoryCleanup() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            console.log('[AI-SERVICE] ✅ Memory cleanup interval stopped');
+        }
+    }
+
+    /**
+     * Process user message and generate AI response
+     */
+    async processMessage(message, client) {
+        try {
+            const startTime = Date.now();
+            const { guild, author, channel, content } = message;
+
+            // Build context
+            const context = {
+                guildId: guild.id,
+                userId: author.id,
+                channelId: channel.id,
+                messageContent: content,
+                channelType: channel.type === 1 ? 'dm' : 'text',
+                messageType: 'user_message'
+            };
+
+            // Build dynamic system prompt
+            const systemPrompt = await dynamicPromptBuilder.buildPrompt(context);
+
+            // Get conversation history
+            const history = this.getConversationHistory(context);
+
+            // Build full prompt
+            const fullPrompt = this.buildFullPrompt(systemPrompt, content, history);
+
+            // Generate AI response
+            const aiResponse = await this.aiModel.generateResponse(fullPrompt, {
+                model: 'ollama',
+                temperature: 0.7,
+                maxTokens: 2000
+            });
+
+            // Update conversation history
+            this.updateConversationHistory(context, content, aiResponse);
+
+            // Learning and analytics
+            await this.processLearning(context, content, aiResponse);
+
+            const responseTime = Date.now() - startTime;
+
+            return {
+                response: aiResponse,
+                responseTime: responseTime,
+                context: context,
+                systemPrompt: systemPrompt
+            };
+
+        } catch (error) {
+            console.error(chalk.red('[AI_SERVICE] ❌ Message processing failed:'), error.message);
+
+            return {
+                response: 'Üzgünüm, bir şeyler ters gitti. Lütfen tekrar deneyin.',
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Build full prompt with history
+     */
+    buildFullPrompt(systemPrompt, userMessage, history) {
+        let fullPrompt = systemPrompt + '\n\n';
+
+        // Add conversation history (last 3 messages)
+        if (history.length > 0) {
+            fullPrompt += '💬 SON KONUŞMALAR:\n';
+            history.forEach((msg, index) => {
+                fullPrompt += `${index + 1}. Kullanıcı: ${msg.user}\n`;
+                fullPrompt += `   AI: ${msg.ai}\n\n`;
+            });
+        }
+
+        // Add current message
+        fullPrompt += '📝 MEVCUT MESAJ:\n';
+        fullPrompt += `Kullanıcı: ${userMessage}\n`;
+        fullPrompt += 'AI: ';
+
+        return fullPrompt;
+    }
+
+    /**
+     * Get conversation history
+     */
+    getConversationHistory(context) {
+        const key = `${context.guildId}:${context.userId}`;
+        const history = this.conversationHistory.get(key) || [];
+        return history.slice(-3); // Last 3 messages
+    }
+
+    /**
+     * Update conversation history
+     */
+    updateConversationHistory(context, userMessage, aiResponse) {
+        const key = `${context.guildId}:${context.userId}`;
+        const history = this.conversationHistory.get(key) || [];
+
+        history.push({
+            user: userMessage,
+            ai: aiResponse,
+            timestamp: new Date()
+        });
+
+        // Keep only last 10 messages
+        if (history.length > 10) {
+            history.splice(0, history.length - 10);
+        }
+
+        this.conversationHistory.set(key, history);
+        // Update timestamp for TTL tracking
+        this.conversationTimestamps.set(key, Date.now());
+    }
+
+    /**
+     * Process learning and analytics
+     */
+    async processLearning(context, userMessage, aiResponse) {
+        try {
+            // Save conversation to database
+            const ConversationExample = require('../models/ConversationExample');
+            const intent = detectIntent(userMessage);
+            const sentiment = this.detectSentiment(userMessage);
+
+            const example = new ConversationExample({
+                guildId: context.guildId,
+                userId: context.userId,
+                username: context.userId, // Would need to fetch from Discord
+                userMessage: userMessage,
+                aiResponse: aiResponse,
+                category: this.categorizeMessage(userMessage),
+                intent: intent,
+                sentiment: sentiment,
+                quality: { rating: 4, helpful: true, accurate: true, appropriate: true },
+                source: 'automatic',
+                tags: this.extractTags(userMessage),
+                active: true,
+                metrics: {
+                    responseTime: 1500,
+                    userSatisfaction: 0, // Would need user feedback
+                    wasResolved: true
+                }
+            });
+
+            await example.save();
+
+            // Update user profile
+            await this.updateUserProfile(context, userMessage, aiResponse);
+
+        } catch (error) {
+            console.error(chalk.yellow('[AI_SERVICE] ⚠️ Learning processing failed:'), error.message);
+        }
+    }
+
+    // detectIntent artık text-utils.js'ten geliyor
+
+    /**
+     * Detect sentiment
+     */
+    detectSentiment(message) {
+        const positiveWords = ['harika', 'güzel', 'mükemmel', 'teşekkür', 'sağol', '😊', '❤️'];
+        const negativeWords = ['kötü', 'berbat', 'saçma', 'aptal', 'sinirli', '😡', '😠'];
+
+        const messageLower = message.toLowerCase();
+
+        if (positiveWords.some(word => messageLower.includes(word))) {
+            return 'positive';
+        } else if (negativeWords.some(word => messageLower.includes(word))) {
+            return 'negative';
+        }
+
+        return 'neutral';
+    }
+
+    /**
+     * Categorize message
+     */
+    categorizeMessage(message) {
+        const intent = detectIntent(message);
+
+        const categoryMap = {
+            'help_request': 'help_request',
+            'greeting': 'greeting',
+            'farewell': 'farewell',
+            'question_answer': 'question_answer',
+            'discord_command': 'discord_command',
+            'general_chat': 'general_chat'
+        };
+
+        return categoryMap[intent] || 'general_chat';
+    }
+
+    /**
+     * Extract tags from message
+     */
+    extractTags(message) {
+        const words = message.toLowerCase()
+            .replace(/[^\w\sğüşiöç]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 2)
+            .slice(0, 5);
+
+        return [...new Set(words)];
+    }
+
+    /**
+     * Update user profile
+     */
+    async updateUserProfile(context, userMessage, aiResponse) {
+        try {
+            const UserLearningProfile = require('../models/UserLearningProfile');
+
+            const profile = await UserLearningProfile.findOneAndUpdate(
+                { guildId: context.guildId, userId: context.userId },
+                {
+                    $inc: { 'history.totalInteractions': 1 },
+                    $set: { 'history.lastInteraction': new Date() },
+                    $push: {
+                        'patterns.activeHours': {
+                            hour: new Date().getHours(),
+                            frequency: 1
+                        }
+                    }
+                },
+                { upsert: true, new: true }
+            );
+
+            return profile;
+        } catch (error) {
+            console.error(chalk.yellow('[AI_SERVICE] ⚠️ User profile update failed:'), error.message);
+        }
+    }
+
+    /**
+     * Get AI statistics
+     */
+    getStats() {
+        return {
+            conversationHistory: this.conversationHistory.size,
+            cachedResponses: this.responseCache.size,
+            currentMood: currentMood,
+            models: Object.keys(this.aiModel.models)
+        };
+    }
+
+    /**
+     * Clear caches
+     */
+    clearCaches() {
+        this.conversationHistory.clear();
+        this.responseCache.clear();
+        dynamicPromptBuilder.clearCache();
+    }
+
+    /**
+     * Chat function (backward compatibility with old ai-service API)
+     * Supports both (message, content) and (guildId, userId, username, content) signatures
+     */
+    async chat(input1, input2, username = "Kullanıcı", extraPrompt = "", targetChannel = null) {
+        let guildId, userId, content, authorName;
+
+        // input1, Discord Message objesi mi?
+        if (typeof input1 === 'object' && input1.guild) {
+            guildId = input1.guild.id;
+            userId = input1.author.id;
+            content = input2;
+            authorName = input1.author.username;
+        } else {
+            // Direkt parametre geçilmiş (örn: guildMemberAdd)
+            guildId = input1;
+            userId = input2;
+            authorName = username;
+            content = extraPrompt;
+        }
+
+        // AI Mod Kontrolü
+        const isAIActive = (await db.fetch(`aimod_${guildId}`)) !== false;
+        if (!isAIActive) return { success: false, response: "AI Kapalı." };
+
+        try {
+            // RAG Pipeline kullanarak context al
+            let ragContext = '';
+            let confidence = { shouldSearchWeb: true };
+
+            try {
+                const ragResult = await ragPipeline.retrieveContext(guildId, content);
+                if (ragResult.success && ragResult.chunks.length > 0) {
+                    ragContext = ragPipeline.formatContextForPrompt(ragResult.chunks);
+                    confidence = ragPipeline.calculateConfidence(ragResult.chunks);
+                }
+            } catch (ragErr) {
+                console.error("[AI] RAG Error:", ragErr.message);
+            }
+
+            const recentContext = await fileMemory.getRecentContext(guildId, 5);
+
+            // Web Search context - ONLY for unknown topics
+            let webSearchContext = '';
+            // Only search web if confidence is low (unknown topic) AND not a Discord command query
+            const isDiscordCommandQuery = /(ban|kick|timeout|sil|kanal|rol|otorol|hosgeldin|duyuru|kullanici)/i.test(content);
+            if (confidence.shouldSearchWeb && !isDiscordCommandQuery && content.length > 5) {
+                try {
+                    const webResult = await learningEngine.searchWeb(content, guildId);
+                    if (webResult && webResult.success) {
+                        webSearchContext = webResult.formattedContext;
+                        console.log(chalk.green('[AI] 🌐 Web search context enjekte edildi'));
+                    }
+                } catch (webErr) {
+                    console.warn(chalk.yellow(`[AI] Web search error: ${webErr.message}`));
+                }
+            } else if (isDiscordCommandQuery) {
+                console.log(chalk.yellow('[AI] 🚫 Web search skipped - Discord command query detected'));
+            }
+
+            // Kullanıcı hafızasını yükle (MongoDB gerekli)
+            let userContext = '';
+            let memory = null;
+            try {
+                const UserMemory = require('../models/UserMemory');
+                if (mongoose.connection.readyState === 1) { // MongoDB bağlıysa
+                    memory = await UserMemory.findOne({ guildId, userId });
+                    if (!memory) {
+                        memory = new UserMemory({
+                            guildId,
+                            userId,
+                            username: authorName,
+                        });
+                    }
+
+                    // Son konuşmaları prompt'a ekle
+                    const recent = memory.getRecentConversations(5);
+                    if (recent.length > 0) {
+                        userContext = '\n\n[SİZİNLE ÖNCEKİ KONUŞMALAR]\n' +
+                            recent.map(c => `${c.role === 'user' ? 'Kullanıcı' : 'Yapay Zeka'}: ${c.content}`).join('\n');
+                    }
+
+                    // Yeni mesajı kaydet
+                    await memory.addMessage('user', content);
+                }
+            } catch (e) {
+                console.warn('[AI] ⚠️ UserMemory hatası:', e.message);
+            }
+
+            const additionalContext = `
+[BAĞLAM (KNOWLEDGE/MEMORY)]
+${ragContext || 'Herhangi bir özel döküman veya hafıza bulunamadı.'}
+
+[SON SOHBETLER]
+${recentContext}
+${userContext}
+
+${webSearchContext ? `${webSearchContext}\n` : ''}
 
 [GÖREV]
-Sen LUMINEX AI'sın. Türkçe, nazik ve yardımsever yanıt ver.
-Kullanıcı mesajı: "${content}"
+Kullanıcı (${authorName}) şunu dedi: "${content}"
+`;
 
-Yanıt ver:`;
+            // Build system prompt
+            const systemPrompt = await dynamicPromptBuilder.buildPrompt({
+                guildId,
+                userId,
+                messageContent: content,
+                channelType: 'text',
+                messageType: 'user_message'
+            });
 
-    // Yeni sistem promptumuzu kullanalım
-    const fullPrompt = LUMINEX_SYSTEM_PROMPT.replace('{ADDITIONAL_CONTEXT}', additionalContext);
+            const fullPrompt = systemPrompt + '\n' + additionalContext;
 
-    let response = "";
-    let usedModel = "unknown";
+            // Generate AI response
+            let aiResponse = null;
+            let lastError = "";
 
-    // === SADECE OLLAMA (Luminex AI) - En iyi Türkçe performans ===
-    let ollamaOk = await checkOllamaHealth();
-    if (ollamaOk) {
-        try {
-            // SADECE Llama 3.2 kullanılacak
-            const modelsToTry = ['llama3.2'];
+            try {
+                console.log(`[AI] 🤖 Generating response...`);
+                aiResponse = await this.aiModel.generateResponse(fullPrompt, {
+                    model: 'ollama',
+                    temperature: 0.7,
+                    maxTokens: 2000
+                });
+                if (aiResponse) {
+                    console.log("[AI] ✅ Başarılı!");
+                }
+            } catch (err) {
+                console.error("[AI] ❌ All fallback models failed:", err.message);
+                lastError = err.message;
+                aiResponse = null; // Ensure it's null for fallback check
+            }
 
-            for (const modelName of modelsToTry) {
+            if (!aiResponse) {
+                const errorMsg = lastError || "Tüm AI modelleri başarısız oldu, lütfen daha sonra tekrar dene.";
+                return { success: false, response: errorMsg, error: lastError };
+            }
+
+            // Hafızaya kaydet
+            await fileMemory.logConversation(guildId, userId, authorName, content, aiResponse);
+
+            // Kullanıcı hafızasına AI yanıtını kaydet
+            if (memory) {
                 try {
-                    console.log(`[AI] 🤖 Luminex AI (${modelName}) deneniyor...`);
-                    const result = await callOllama(fullPrompt, { model: modelName });
-
-                    if (result && result.trim().length > 0) {
-                        response = result;
-                        usedModel = `Luminex AI (${modelName})`;
-                        console.log(`[AI] ✅ ${modelName} başarılı! (${response.length} karakter)`);
-                        break; // Başarılı olunca döngüden çık
-                    }
-                } catch (modelErr) {
-                    console.warn(`[AI] ⚠️ ${modelName} hatası:`, modelErr.message);
-                    continue;
+                    await memory.addMessage('assistant', aiResponse);
+                } catch (e) {
+                    console.warn('[AI] ⚠️ Yardımcı yanıt kaydedilemedi:', e.message);
                 }
             }
+
+            return {
+                success: true,
+                response: aiResponse,
+                hasCommand: aiResponse.includes('[KOMUT:'),
+                hasProposal: aiResponse.includes('[ONERI:')
+            };
+
         } catch (err) {
-            console.error("[AI] ❌ Ollama genel hatası:", err.message);
+            console.error("[AI CHAT FATAL]:", err);
+            return { success: false, response: null, error: err.message };
         }
     }
 
+    /**
+     * Idle Reflection - Proaktif sunucu analizi
+     */
+    async idleReflection(guild) {
+        if (!guild) return null;
+        console.log(`[REFLECTION] 🧠 ${guild.name} analiz ediliyor...`);
 
-
-    // === HATA: Hiçbir AI çalışmıyor ===
-    if (!response || response.trim().length === 0) {
-        return { success: false, response: "😔 Şu an yapay zeka servislerine ulaşamıyorum. Lütfen daha sonra tekrar dene." };
-    }
-
-    // --- SON İŞLEMLER ---
-
-    // Hafızaya kaydet
-    await fileMemory.logConversation(guild.id, author.id, author.username, content, response);
-    addToHistory(guild.id, author.id, 'user', content);
-    addToHistory(guild.id, author.id, 'model', response);
-
-    return {
-        success: true,
-        response: response,
-        hasCommand: response.includes('[KOMUT:'),
-        hasProposal: response.includes('[ONERI:'),
-        model: usedModel
-    };
-}
-
-function parseCommand(response) {
-    const regex = /\[(KOMUT|ONERI):([^\]]+)\]/g;
-    // Hem KOMUT hem ONERI yakalar
-    const commands = [];
-    let match;
-    while ((match = regex.exec(response)) !== null) {
-        const type = match[1]; // KOMUT veya ONERI
-        const parts = match[2].split(':');
-        commands.push({
-            type: type,
-            command: parts[0],
-            params: parts.slice(1),
-            fullMatch: match[0]
-        });
-    }
-    return commands.length > 0 ? commands : null;
-}
-
-// Eski executeCommand fonksiyonunu yeni modüle yönlendiriyoruz
-async function executeCommand(command, message, client) {
-    return await executeAICommand(command, message, client);
-}
-
-
-/**
- * Sohbet geçmişini temizle
- */
-function clearHistory(guildId, userId) {
-    const key = guildId + "_" + userId;
-    conversationHistory.delete(key);
-}
-
-/**
- * PROAKTİF SUNUCU ANALİZİ (Idle Reflection)
- * Eski idleResearch yerine geçer.
- * ARTIK DAHA AKILLI: İstatistikleri takip eder ve trendleri analiz eder.
- * Ollama (Llama 3.2) öncelikli, Gemini fallback
- */
-async function idleReflection(guild) {
-    if (!guild) return null;
-
-    console.log("[AI REFLECTION] 🧠 Derin Analiz & Öngörü: " + guild.name);
-
-    try {
-        // 1. İstatistikleri Kaydet & Trendleri Al
-        await fileMemory.logStat(guild.id, 'memberCount', guild.memberCount);
-        await fileMemory.logStat(guild.id, 'channelCount', guild.channels.cache.size);
-
-        const memberTrend = await fileMemory.getTrends(guild.id, 'memberCount');
-        const adaptiveProfile = await fileMemory.getAdaptiveProfile(guild.id);
-        const activityReport = await fileMemory.getActivityReport(guild.id);
-        const visionTrends = await fileMemory.getVisionTrends(guild.id);
-
-        // Sunucu Verilerini Topla
-        const channelCount = guild.channels.cache.size;
-        const memberCount = guild.memberCount;
-        const roleCount = guild.roles.cache.size;
-
-        // Rastgele 5 kanal ismi
-        const channels = guild.channels.cache.map(c => c.name).slice(0, 10).join(', ');
-
-        // Analiz Promptu (GELİŞTİRİLDİ - Phase 7)
-        const prompt = "Sen Luminex, bu sunucunun stratejik yapay zeka yöneticisisin.\n\n" +
-            "📊 VERİ & TRENDLER:\n" +
-            "- Üye Sayısı: " + memberCount + " (" + memberTrend + ")\n" +
-            "- Kanal Sayısı: " + channelCount + "\n" +
-            "- Rol Sayısı: " + roleCount + "\n" +
-            "- Adaptasyon Profilin: " + adaptiveProfile + "\n" +
-            "- 🔥 AKTİVİTE RAPORU: " + activityReport + "\n" +
-            "- 🖼️ GÖRSEL TRENDLER: " + visionTrends + "\n\n" +
-
-            "GÖREVİN (Derin Analiz & Aktivite Yönetimi):\n" +
-            "        Verilere bakarak durumu yorumla.\n" +
-            "        1. **Aktivite Kontrolü:** Eğer aktivite \"Düşük (Ölü)\" ise, sunucuyu canlandıracak bir etkinlik veya tartışma başlatmalısın.\n" +
-            "           - Örn: \"Sohbet ölü, hadi bir oyun başlatalım.\" -> [ONERI:etkinlik-olustur:Oyun Gecesi]\n" +
-            "        2. **Görsel Analiz:** Eğer bir kanalda çok fazla görsel paylaşılıyorsa (örn: " + visionTrends + "), o kanalın amacına uygun bir öneri sun.\n" +
-            "           - Örn: \"Sohbet kanalında çok resim atılıyor, bir 'Medya' kanalı açalım mı?\" -> [ONERI:kanal-olustur:medya]\n" +
-            "        3. **İhtiyaç Tespiti:** Sunucuda eksik bir rol, kanal veya kural var mı?\n\n" +
-
-            "    EĞER BİR FİKRİN VARSA (ÖNERİ SUN):\n" +
-            "        Format: \"Analizime göre [Tespitin]... Bu yüzden şunu öneriyorum: [ONERI:komut:parametreler]\"\n\n" +
-            "        Eğer her şey stabilse ama aktivite düşükse, sohbeti başlatacak yaratıcı bir soru sor.";
-
-        let thought;
-
-        // === 1. DENEME: OLLAMA ===
         try {
-            const ollamaHealthy = await checkOllamaHealth();
-            if (ollamaHealthy) {
-                console.log(`[AI REFLECTION] 🦙 Ollama (${OLLAMA_MODEL}) ile analiz yapılıyor...`);
-                thought = await callOllama(prompt);
-            } else {
-                throw new Error('Ollama bağlantısı yok');
+            // Verileri logla
+            await fileMemory.logStat(guild.id, 'memberCount', guild.memberCount);
+
+            const activityReport = await fileMemory.getActivityReport(guild.id);
+
+            const prompt = `Sen Luminex AI'sın, Türkiye'nin en gelişmiş Discord botusun.
+Sunucu: ${guild.name}
+Üye sayısı: ${guild.memberCount}
+Aktivite durumu: ${activityReport}
+
+GÖREV: Sunucuyu analiz et ve kısa bir öneri ver.
+- Eğer sunucu sessizse sohbeti canlandıracak bir şey öner
+- Eğer aktifse teknik bir öneri yap
+- Kısa ve Türkçe yanıt ver
+Önerini [ONERI:komut:parametre] formatında yazabilirsin.`;
+
+            let thought = null;
+
+            try {
+                thought = await this.aiModel.generateResponse(prompt, {
+                    model: 'ollama',
+                    temperature: 0.7,
+                    maxTokens: 500
+                });
+            } catch (err) {
+                console.warn("[REFLECTION] Model hatası:", err.message);
+                return null;
             }
-        } catch (ollamaErr) {
-            // === 2. DENEME: GEMINI FALLBACK ===
-            if (genAI) {
-                console.log("[AI REFLECTION] 🔄 Gemini fallback kullanılıyor...");
-                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
-                const result = await model.generateContent(prompt);
-                thought = result.response.text();
-            } else {
-                throw new Error('Hiçbir AI servisi kullanılamıyor');
+
+            return { shouldSpeak: true, content: thought };
+
+        } catch (e) {
+            console.error("[REFLECTION ERROR]:", e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Parse command from AI response
+     * @returns {Array|null} Standartlaştırılmış komut dizisi: [{ command, action, params, isCommand, fullMatch }]
+     */
+    parseCommand(text) {
+        const commands = [];
+        const regex = /\[(KOMUT|ONERI):([^\]]+)\]/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const type = match[1];
+            const paramsString = match[2];
+
+            // Smart parameter parsing
+            const args = this.smartParamParse(paramsString);
+            const action = args[0];
+            const params = args.slice(1);
+
+            commands.push({
+                fullMatch: match[0],
+                type: type, // 'KOMUT' veya 'ONERI'
+                isCommand: type === 'KOMUT',
+                isProposal: type === 'ONERI',
+                command: action, // Standart alan
+                action: action,  // Alternatif alan
+                params: params,  // Standart alan
+                args: params     // Alternatif alan
+            });
+        }
+        return commands.length > 0 ? commands : null;
+    }
+
+    /**
+     * Smart parameter parser
+     */
+    smartParamParse(text) {
+        const params = [];
+        let current = '';
+        let inQuotes = false;
+        let escapeNext = false;
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+
+            if (escapeNext) {
+                current += char;
+                escapeNext = false;
+                continue;
             }
+
+            if (char === '\\' && nextChar === '"') {
+                current += '"';
+                escapeNext = true;
+                i++;
+                continue;
+            }
+
+            if (char === '"') {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (char === ':' && !inQuotes) {
+                if (current.trim()) {
+                    params.push(current.trim());
+                }
+                current = '';
+                continue;
+            }
+
+            current += char;
         }
 
-        console.log("[AI REFLECTION] 💭 Stratejik Analiz Sonucu: \n" + thought);
+        if (current.trim()) {
+            params.push(current.trim());
+        }
 
-        return {
-            shouldSpeak: true,
-            content: thought
-        };
-
-    } catch (error) {
-        console.error("[AI REFLECTION] ❌ Hata:", error.message);
+        return params;
     }
-    return null;
+    /**
+     * Execute AI command
+     * @param {Object} cmdData - { command, action, params } parseCommand çıktısı
+     * @param {Object} message - Discord message object
+     * @param {Object} client - Discord client
+     */
+    async executeCommand(cmdData, message, client) {
+        const command = cmdData.command || cmdData.action;
+        const params = cmdData.params || cmdData.args || [];
+
+        console.log(`[AI-SERVICE] 🚀 executeCommand: ${command} | Params: ${params.join(', ') || 'Yok'}`);
+
+        const { executeAICommand } = require('./ai-commands');
+        const result = await executeAICommand(
+            { command, params }, // Standart format
+            message,
+            client
+        );
+
+        console.log(`[AI-SERVICE] ✅ executeCommand sonuç:`, result);
+        return result;
+    }
 }
 
-module.exports = {
-    chat,
-    parseCommand,
-    executeCommand,
-    clearHistory,
-    getHistory,
-    idleReflection,
-    addToHistory
-};
+// Create singleton instance
+const enhancedAIService = new EnhancedAIService();
 
-
-
-
+module.exports = enhancedAIService;

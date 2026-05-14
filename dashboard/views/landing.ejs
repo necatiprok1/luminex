@@ -456,7 +456,7 @@
         </a>
         <div class="navbar-nav">
             <% if (isAuthenticated) { %>
-                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/servers" class="nav-link">Sunucularım</a>
                 <a href="/auth/logout" class="btn-primary"><i class="fas fa-sign-out-alt"></i> Çıkış Yap</a>
             <% } else { %>
                 <a href="/auth/login" class="btn-primary"><i class="fab fa-discord"></i> Discord ile Giriş</a>
@@ -477,8 +477,8 @@
             <p>Yapay zeka destekli moderasyon, gelişmiş istatistikler ve özelleştirilebilir özelliklerle sunucunuzu bir üst seviyeye taşıyın.</p>
             <div class="hero-buttons">
                 <% if (isAuthenticated) { %>
-                    <a href="/dashboard" class="btn-hero btn-hero-primary">
-                        <i class="fas fa-chart-line"></i> Dashboard'a Git
+                    <a href="/servers" class="btn-hero btn-hero-primary">
+                        <i class="fas fa-chart-line"></i> Sunuculara Git
                     </a>
                 <% } else { %>
                     <a href="/auth/login" class="btn-hero btn-hero-primary">

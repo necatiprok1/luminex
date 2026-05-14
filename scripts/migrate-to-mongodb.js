@@ -72,12 +72,27 @@ class MongoDBMigration {
      */
     async validateMongoDB() {
         try {
-            // Test basic operations
+            // Test basic operations - create indexes for all models
+            console.log(chalk.blue('📝 Creating MongoDB indexes...'));
+            
+            // Direct model indexes
             await SystemPrompt.createIndexes();
-            await GuildMemory.createIndexes();
             await KnowledgeBase.createIndexes();
             await ConversationExample.createIndexes();
             await UserLearningProfile.createIndexes();
+            
+            // GuildMemory exported models
+            await GuildMemory.Conversation.createIndexes();
+            await GuildMemory.Fact.createIndexes();
+            await GuildMemory.Stat.createIndexes();
+            await GuildMemory.Feedback.createIndexes();
+            await GuildMemory.Activity.createIndexes();
+            await GuildMemory.Media.createIndexes();
+            await GuildMemory.ModLog.createIndexes();
+            await GuildMemory.ServerCache.createIndexes();
+            await GuildMemory.MemoryStore.createIndexes();
+            await GuildMemory.LearningStats.createIndexes();
+            
             console.log(chalk.green('✅ MongoDB indexes created'));
         } catch (error) {
             console.error(chalk.red('❌ MongoDB validation failed:'), error.message);
@@ -185,7 +200,7 @@ class MongoDBMigration {
                     // Migrate conversations
                     if (memoryData.conversations && Array.isArray(memoryData.conversations)) {
                         for (const conv of memoryData.conversations) {
-                            const guildMemory = new GuildMemory({
+                            const conversation = new GuildMemory.Conversation({
                                 guildId,
                                 userId: conv.userId || 'unknown',
                                 username: conv.username,
@@ -194,7 +209,7 @@ class MongoDBMigration {
                                 timestamp: conv.timestamp || new Date()
                             });
                             
-                            await guildMemory.save();
+                            await conversation.save();
                             migrated++;
                         }
                     }

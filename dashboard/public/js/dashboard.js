@@ -44,10 +44,17 @@ async function loadVoiceChannels() {
             data.data.forEach(channel => {
                 const card = document.createElement('div');
                 card.className = 'mod-action-card';
+                const membersCount = channel.membersCount ?? 0;
+                const membersPreview = Array.isArray(channel.members) && channel.members.length
+                    ? channel.members
+                        .map(m => m.tag || m.username || m.displayName || m.id)
+                        .slice(0, 5)
+                        .join(', ')
+                    : '';
                 card.innerHTML = `
                     <h3>🔊 ${channel.name}</h3>
                     <p style="font-size: 0.9rem; color: var(--text-muted); margin: 8px 0;">
-                        Bitrate: ${channel.bitrate} Hz | Kullanıcılar: ${channel.members}
+                        Bitrate: ${channel.bitrate} Hz | Kullanıcılar: ${membersCount}${membersPreview ? ` | ${membersPreview}` : ''}
                     </p>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="edit-name-${channel.id}" placeholder="Yeni Adı" class="input-field" style="flex: 1;">

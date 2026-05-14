@@ -72,10 +72,8 @@ class MongoDBHelper {
     async set(key, value, collection = 'general') {
         try {
             const cacheKey = `${collection}:${key}`;
-            
-            // Update cache
-            this.cache.set(cacheKey, value);
-            setTimeout(() => this.cache.delete(cacheKey), this.cacheTimeout);
+
+            let result = true;
 
             // Use appropriate model based on collection
             switch (collection) {
@@ -110,8 +108,14 @@ class MongoDBHelper {
                     );
                     break;
                 default:
-                    await this.setGenericData(key, value, collection);
+                    result = await this.setGenericData(key, value, collection);
             }
+
+            if (!result) return false;
+
+            // Cache only after successful DB write.
+            this.cache.set(cacheKey, value);
+            setTimeout(() => this.cache.delete(cacheKey), this.cacheTimeout);
 
             return true;
         } catch (error) {
@@ -126,7 +130,7 @@ class MongoDBHelper {
     async delete(key, collection = 'general') {
         try {
             const cacheKey = `${collection}:${key}`;
-            this.cache.delete(cacheKey);
+            let result = true;
 
             switch (collection) {
                 case 'systemPrompts':
@@ -143,9 +147,12 @@ class MongoDBHelper {
                     await UserLearningProfile.deleteOne({ guildId, userId });
                     break;
                 default:
-                    await this.deleteGenericData(key, collection);
+                    result = await this.deleteGenericData(key, collection);
             }
 
+            if (!result) return false;
+
+            this.cache.delete(cacheKey);
             return true;
         } catch (error) {
             console.error(`MongoDB delete error for key ${key}:`, error.message);
