@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { ModLog } = require('../models/GuildMemory');
 const mongoose = require('mongoose');
+const db = require('./mongodb-helper');
 
 /**
  * 📋 Luminex Log Sistemi
@@ -11,8 +12,8 @@ class LogSystem {
     /**
      * Log kanalını getir
      */
-    getLogChannel(guild) {
-        const logChannelId = db.fetch(`log_channel_${guild.id}`);
+    async getLogChannel(guild) {
+        const logChannelId = await db.fetch(`log_channel_${guild.id}`);
         if (!logChannelId) return null;
         return guild.channels.cache.get(logChannelId);
     }
@@ -20,23 +21,24 @@ class LogSystem {
     /**
      * Log kanalı ayarla
      */
-    setLogChannel(guildId, channelId) {
-        db.set(`log_channel_${guildId}`, channelId);
+    async setLogChannel(guildId, channelId) {
+        await db.set(`log_channel_${guildId}`, channelId);
     }
 
     /**
      * Log sistemi aktif mi?
      */
-    isActive(guildId) {
-        return db.fetch(`module_${guildId}_log-sistemi`) === true;
+    async isActive(guildId) {
+        const value = await db.fetch(`module_${guildId}_log-sistemi`);
+        return value === true;
     }
 
     /**
      * Genel log gönder
      */
     async sendLog(guild, embed) {
-        if (!this.isActive(guild.id)) return;
-        const channel = this.getLogChannel(guild);
+        if (!(await this.isActive(guild.id))) return;
+        const channel = await this.getLogChannel(guild);
         if (!channel) return;
 
         try {
@@ -44,6 +46,13 @@ class LogSystem {
         } catch (e) {
             console.error('[LOG] Log gönderilemedi:', e.message);
         }
+    }
+
+    /**
+     * Alias for sendLog (voiceStateUpdate.js compatibility)
+     */
+    async send(guild, embed) {
+        return this.sendLog(guild, embed);
     }
 
     /**

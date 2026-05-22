@@ -8,7 +8,7 @@ module.exports = {
 
     run: async (client, interaction) => {
         await interaction.deferReply();
-        const embed = levelSystem.getLeaderboardEmbed(interaction.guild.id, interaction.guild);
+        const embed = await levelSystem.getLeaderboardEmbed(interaction.guild.id, interaction.guild);
         await interaction.editReply({ embeds: [embed] });
     }
 };

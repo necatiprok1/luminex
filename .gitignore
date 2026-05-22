@@ -32,6 +32,10 @@ build/
 croxydb/
 data/
 mongodb_data/
+ollama_data/
+
+# Bot Logs
+bot_startup.log
 
 # OS Files
 .DS_Store

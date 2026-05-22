@@ -36,7 +36,9 @@ const requiredEnvVars = ['TOKEN'];
 const optionalEnvVars = ['GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'OLLAMA_URL', 'WEBHOOK_URL', 'ERROR_WEBHOOK_URL'];
 
 for (const envVar of requiredEnvVars) {
-    if (!process.env[envVar]) {
+    if (envVar === 'TOKEN' && (process.env.DISCORD_TOKEN || process.env.TOKEN)) {
+        continue; // Ok
+    } else if (!process.env[envVar]) {
         console.error(chalk.red(`[FATAL] ❌ ${envVar} çevresel değişkeni bulunamadı! .env dosyasını kontrol edin.`));
         process.exit(1);
     }
@@ -90,6 +92,7 @@ if (process.env.MONGO_URI) {
 } else {
     console.warn(chalk.yellow('[DATABASE] ⚠️ MONGO_URI ayarlanmamış - MongoDB olmadan devam ediliyor'));
 }
+
 
 // ══════════════════════════════════════
 // 🛡️ ERROR HANDLER
@@ -177,4 +180,11 @@ try {
     console.error(chalk.red('[DASHBOARD] ❌ Panel yüklenirken hata:'), err.message);
 }
 
-client.login(process.env.TOKEN);
+// ══════════════════════════════════════
+// 🚀 BOT GİRİŞİ
+// ══════════════════════════════════════
+client.login(process.env.DISCORD_TOKEN || process.env.TOKEN)
+    .catch((error) => {
+        console.error(chalk.red('[FATAL] ❌ Bot girişi başarısız:'), error);
+        process.exit(1);
+    });

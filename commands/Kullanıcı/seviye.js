@@ -17,7 +17,7 @@ module.exports = {
         const member = interaction.guild.members.cache.get(targetUser.id) ||
             await interaction.guild.members.fetch(targetUser.id).catch(() => null);
 
-        const embed = levelSystem.getProfileEmbed(targetUser.id, interaction.guild.id, member || targetUser);
+        const embed = await levelSystem.getProfileEmbed(targetUser.id, interaction.guild.id, member || targetUser);
         await interaction.editReply({ embeds: [embed] });
     }
 };

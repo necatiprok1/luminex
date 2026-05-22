@@ -105,12 +105,19 @@ class AnalyticsSystem {
      */
     async getTopCommands(guildId) {
         const commands = {};
-        // Son 30 gün
+        // Son 30 gün — parallel fetch
+        const fetchPromises = [];
         for (let i = 0; i < 30; i++) {
             const date = new Date();
             date.setDate(date.getDate() - i);
             const day = date.toISOString().split('T')[0];
-            const daily = (await db.fetch(`analytics_daily_${guildId}_${day}`)) || {};
+            fetchPromises.push(
+                db.fetch(`analytics_daily_${guildId}_${day}`).then(daily => daily || {})
+            );
+        }
+
+        const results = await Promise.all(fetchPromises);
+        for (const daily of results) {
             for (const [cmd, count] of Object.entries(daily)) {
                 if (cmd === '__total') continue;
                 commands[cmd] = (commands[cmd] || 0) + count;

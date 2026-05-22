@@ -6,6 +6,7 @@
 const { Events } = require('discord.js');
 const confirmation = require('../utils/command-confirmation');
 const aiService = require('../utils/ai-service');
+const starboard = require('../utils/starboard-system');
 
 module.exports = {
     name: Events.MessageReactionAdd,
@@ -21,6 +22,13 @@ module.exports = {
                 console.error('Reaction fetch error:', error);
                 return;
             }
+        }
+
+        // ⭐ Starboard handling
+        try {
+            await starboard.handleReaction(reaction, user);
+        } catch (e) {
+            // Starboard hatası diğer işlemleri engellemesin
         }
 
         try {

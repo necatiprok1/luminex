@@ -157,7 +157,8 @@ const memoryStoreSchema = new mongoose.Schema({
 // TTL index for automatic cleanup (expires after ttl seconds)
 memoryStoreSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 }); // 30 gün default
 memoryStoreSchema.index({ guildId: 1, userId: 1 });
-memoryStoreSchema.index({ 'interaction.embedding': '2dsphere' });
+// Note: Vector/embedding index should be created manually on MongoDB Atlas if needed
+// memoryStoreSchema.index({ 'interaction.embedding': '2dsphere' });
 memoryStoreSchema.index({ importance: -1 });
 
 // Learning Stats - Öğrenme metrikleri

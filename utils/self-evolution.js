@@ -214,25 +214,39 @@ class SelfEvolution {
      */
     async findSimilarMemories(guildId, embedding, excludeId) {
         try {
+            // Pre-filter: sadece son 7 gün, aktif, embedding olan ve yüksek önem skorlu olanlar
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 7);
+
             const allMemories = await MemoryStore.find({
                 guildId,
                 _id: { $ne: excludeId },
+                status: 'active',
+                importance: { $gte: 0.5 },
+                createdAt: { $gte: cutoffDate },
                 'interaction.embedding': { $exists: true }
-            }).lean();
+            })
+            .limit(100) // Max 100 aday ile sınırla
+            .lean();
 
             const similar = [];
 
             for (const memory of allMemories) {
-                const similarity = embeddingService.cosineSimilarity(
-                    embedding,
-                    memory.interaction.embedding
-                );
+                try {
+                    const similarity = embeddingService.cosineSimilarity(
+                        embedding,
+                        memory.interaction.embedding
+                    );
 
-                if (similarity > 0.85) { // 85% similarity threshold
-                    similar.push({
-                        ...memory,
-                        similarity
-                    });
+                    if (similarity > 0.85) { // 85% similarity threshold
+                        similar.push({
+                            ...memory,
+                            similarity
+                        });
+                    }
+                } catch (e) {
+                    // Skip invalid embeddings
+                    continue;
                 }
             }
 

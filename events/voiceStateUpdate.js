@@ -51,8 +51,10 @@ module.exports = {
             }
 
             if (embed) {
-                logSystem.send(guild, embed);
+                await logSystem.sendLog(guild, embed);
             }
-        } catch {}
+        } catch (e) {
+            // Log sistemi yoksa veya hata varsa sessizce geç
+        }
     }
 };

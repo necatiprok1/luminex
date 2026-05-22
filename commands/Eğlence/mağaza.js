@@ -7,8 +7,9 @@ module.exports = {
         .setDescription("🏪 Luminex Coin ile ürün satın al!"),
 
     run: async (client, interaction) => {
-        const items = economy.getShopItems(interaction.guild.id);
-        const balance = economy.getBalance(interaction.guild.id, interaction.user.id);
+        await interaction.deferReply();
+        const items = await economy.getShopItems(interaction.guild.id);
+        const balance = await economy.getBalance(interaction.guild.id, interaction.user.id);
 
         const itemList = items.map((item, i) => {
             const affordable = balance >= item.price ? '✅' : '❌';
@@ -43,7 +44,7 @@ module.exports = {
                     .addOptions(options)
             );
 
-        const msg = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+        const msg = await interaction.editReply({ embeds: [embed], components: [row] });
 
         const filter = i => i.user.id === interaction.user.id;
         const collector = msg.createMessageComponentCollector({ filter, time: 60000 });
@@ -52,7 +53,7 @@ module.exports = {
             if (!i.isStringSelectMenu()) return;
 
             const itemId = i.values[0];
-            const result = economy.buyItem(interaction.guild.id, interaction.user.id, itemId);
+            const result = await economy.buyItem(interaction.guild.id, interaction.user.id, itemId);
 
             if (!result.success) {
                 await i.reply({ content: `❌ ${result.message}`, flags: 64 });

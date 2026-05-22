@@ -16,6 +16,9 @@ class EmbeddingService {
         this.RETRY_ATTEMPTS = 3;
         this.RETRY_DELAY = 1000; // ms
         this.embeddingCache = new Map(); // Basit cache
+        this.MAX_CACHE_SIZE = 1000; // Max cache entries
+        this.CACHE_TTL = 60 * 60 * 1000; // 1 saat
+        this.cacheTimestamps = new Map(); // Cache entry timestamps
         this.initialized = false;
     }
 
@@ -68,7 +71,14 @@ class EmbeddingService {
         // Cache lookup (initialization sırasında skipCache = true)
         if (!skipCache) {
             const cached = this.embeddingCache.get(text);
-            if (cached) return cached;
+            const cachedTime = this.cacheTimestamps.get(text);
+            if (cached && cachedTime && (Date.now() - cachedTime < this.CACHE_TTL)) {
+                return cached;
+            } else if (cached) {
+                // TTL expired, remove stale entry
+                this.embeddingCache.delete(text);
+                this.cacheTimestamps.delete(text);
+            }
         }
 
         let lastError = null;
@@ -98,9 +108,19 @@ class EmbeddingService {
                     throw new Error('Empty embedding received');
                 }
 
-                // Cache the result
+                // Cache the result with eviction
                 if (!skipCache) {
+                    // Evict oldest entries if cache is full
+                    if (this.embeddingCache.size >= this.MAX_CACHE_SIZE) {
+                        const entriesToRemove = Math.floor(this.MAX_CACHE_SIZE * 0.2);
+                        const keys = Array.from(this.embeddingCache.keys()).slice(0, entriesToRemove);
+                        for (const key of keys) {
+                            this.embeddingCache.delete(key);
+                            this.cacheTimestamps.delete(key);
+                        }
+                    }
                     this.embeddingCache.set(text, embedding);
+                    this.cacheTimestamps.set(text, Date.now());
                 }
 
                 return embedding;
@@ -208,6 +228,7 @@ class EmbeddingService {
     clearCache() {
         const size = this.embeddingCache.size;
         this.embeddingCache.clear();
+        this.cacheTimestamps.clear();
         console.log(chalk.yellow(`[EMBEDDING] 🧹 Cache cleared (${size} entries removed)`));
     }
 

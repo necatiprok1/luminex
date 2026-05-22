@@ -114,7 +114,7 @@ module.exports = (client) => {
         store: sessionStore,
         secret: SESSION_SECRET || 'temporary-secret-change-immediately',
         resave: false,
-        saveUninitialized: true,
+        saveUninitialized: false,
         cookie: { 
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,

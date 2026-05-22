@@ -33,6 +33,7 @@ const knowledgeBaseSchema = new mongoose.Schema({
 // Compound indexes for performance
 knowledgeBaseSchema.index({ guildId: 1, category: 1, 'metadata.processedAt': -1 });
 knowledgeBaseSchema.index({ tags: 1, confidence: -1 });
-knowledgeBaseSchema.index({ guildId: 1, embedding: 'vector' }); // For vector search
+// Note: Vector search index should be created manually on MongoDB Atlas if needed
+// knowledgeBaseSchema.index({ guildId: 1, embedding: 'vector' });
 
 module.exports = mongoose.model('KnowledgeBase', knowledgeBaseSchema);

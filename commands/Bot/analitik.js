@@ -8,7 +8,8 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     run: async (client, interaction) => {
-        const embed = analytics.createOverviewEmbed(interaction.guild.id, interaction.guild);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.deferReply();
+        const embed = await analytics.createOverviewEmbed(interaction.guild.id, interaction.guild);
+        await interaction.editReply({ embeds: [embed] });
     }
 };

@@ -16,7 +16,7 @@ const genericDataSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed, 
         required: true 
     },
-    collectionName: { 
+    collection: { 
         type: String, 
         default: 'general',
         index: true 
@@ -31,6 +31,6 @@ const genericDataSchema = new mongoose.Schema({
 });
 
 // Compound index for collection-based queries
-genericDataSchema.index({ collectionName: 1, key: 1 });
+genericDataSchema.index({ collection: 1, key: 1 });
 
 module.exports = mongoose.models.GenericData || mongoose.model('GenericData', genericDataSchema);

@@ -92,8 +92,7 @@ module.exports = {
                     member.guild.id,
                     member.user.id,
                     member.user.username,
-                    `Sunucuya yeni biri geldi: ${member.user.tag}. Ona kısa ve hoş bir karşılama mesajı yaz.`,
-                    channel // Kanal bağlamı
+                    `Sunucuya yeni biri geldi: ${member.user.tag}. Ona kısa ve hoş bir karşılama mesajı yaz.`
                 );
 
                 if (aiResponse && aiResponse.success && aiResponse.response) {

@@ -204,12 +204,12 @@ async function getActivityReport(guildId) {
             report = activities.map(a => ({ name: a.channelName || a.channelId, count: a.count }));
         } catch (err) { console.error('MongoDB getActivityReport Error:', err); }
     } else {
-        const keyList = db.fetch(`activity_keys_${guildId}`) || [];
+        const keyList = (await db.fetch(`activity_keys_${guildId}`)) || [];
         const currentHourKeys = keyList.filter(k => k.endsWith(hourKey));
         for (const key of currentHourKeys) {
             const channelId = key.split('_')[2];
-            const count = db.fetch(key) || 0;
-            const name = db.fetch(`meta_channel_name_${channelId}`) || channelId;
+            const count = (await db.fetch(key)) || 0;
+            const name = (await db.fetch(`meta_channel_name_${channelId}`)) || channelId;
             report.push({ name, count });
         }
     }

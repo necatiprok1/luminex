@@ -58,19 +58,28 @@ module.exports = {
         const guildId = interaction.guild.id;
 
         if (sub === 'göster') {
-            const welcomeChannel = await db.fetch(`welcome_channel_${guildId}`);
+            const welcomeChannel = await db.fetch(`hosgeldinkanal_${guildId}`);
+            const aiMod = await db.fetch(`aimod_${guildId}`);
+            const levelMod = await db.fetch(`module_${guildId}_seviye-sistemi`);
+            const welcomeImage = await db.fetch(`module_${guildId}_hosgeldin-sistemi`);
+            const logChannel = await db.fetch(`log_channel_${guildId}`);
+            const antiRaid = await db.fetch(`antiraid_enabled_${guildId}`);
+            const starboard = await db.fetch(`starboard_enabled_${guildId}`);
+            const kufurEngel = await db.fetch(`kufurengel_${guildId}`);
+            const reklamEngel = await db.fetch(`reklamengel_${guildId}`);
+
             const settings = {
                 'Hoşgeldin Kanalı': welcomeChannel ? `<#${welcomeChannel}>` : '❌ Ayarlanmamış',
                 'Hoşgeldin Mesajı': (await db.fetch(`welcome_message_${guildId}`)) || '*(Varsayılan)*',
-                'Hoşgeldin Resmi': (await db.fetch(`welcome_image_${guildId}`)) ? '✅ Açık' : '❌ Kapalı',
-                'Seviye Sistemi': (await db.fetch(`level_disabled_${guildId}`)) ? '❌ Kapalı' : '✅ Açık',
+                'Hoşgeldin Resmi': welcomeImage ? '✅ Açık' : '❌ Kapalı',
+                'Seviye Sistemi': levelMod === false ? '❌ Kapalı' : '✅ Açık',
                 'Ekonomi Sistemi': (await db.fetch(`economy_disabled_${guildId}`)) ? '❌ Kapalı' : '✅ Açık',
-                'AI Sistemi': (await db.fetch(`ai_disabled_${guildId}`)) ? '❌ Kapalı' : '✅ Açık',
-                'Anti-Raid': (await db.fetch(`antiraid_enabled_${guildId}`)) ? '✅ Açık' : '❌ Kapalı',
-                'Starboard': (await db.fetch(`starboard_enabled_${guildId}`)) ? '✅ Açık' : '❌ Kapalı',
-                'Log Kanalı': (await db.fetch(`log_${guildId}`)) ? `<#${await db.fetch(`log_${guildId}`)}>` : '❌ Ayarlanmamış',
-                'Küfür Engel': (await db.fetch(`kufurengel_${guildId}`)) ? '✅ Açık' : '❌ Kapalı',
-                'Reklam Engel': (await db.fetch(`reklamengel_${guildId}`)) ? '✅ Açık' : '❌ Kapalı',
+                'AI Sistemi': aiMod === false ? '❌ Kapalı' : '✅ Açık',
+                'Anti-Raid': antiRaid ? '✅ Açık' : '❌ Kapalı',
+                'Starboard': starboard ? '✅ Açık' : '❌ Kapalı',
+                'Log Kanalı': logChannel ? `<#${logChannel}>` : '❌ Ayarlanmamış',
+                'Küfür Engel': kufurEngel ? '✅ Açık' : '❌ Kapalı',
+                'Reklam Engel': reklamEngel ? '✅ Açık' : '❌ Kapalı',
             };
 
             const desc = Object.entries(settings)
@@ -89,7 +98,7 @@ module.exports = {
 
         else if (sub === 'hoşgeldin-kanal') {
             const channel = interaction.options.getChannel('kanal');
-            await db.set(`welcome_channel_${guildId}`, channel.id);
+            await db.set(`hosgeldinkanal_${guildId}`, channel.id);
             await interaction.reply({
                 embeds: [new EmbedBuilder().setDescription(`✅ Hoşgeldin kanalı ${channel} olarak ayarlandı.`).setColor('#2ECC71')]
             });
@@ -112,7 +121,7 @@ module.exports = {
 
         else if (sub === 'hoşgeldin-resim') {
             const durum = interaction.options.getBoolean('durum');
-            await db.set(`welcome_image_${guildId}`, durum);
+            await db.set(`module_${guildId}_hosgeldin-sistemi`, durum);
             await interaction.reply({
                 embeds: [new EmbedBuilder()
                     .setDescription(`✅ Hoşgeldin resmi ${durum ? 'açıldı' : 'kapatıldı'}.`)
@@ -122,7 +131,9 @@ module.exports = {
 
         else if (sub === 'seviye-sistemi') {
             const durum = interaction.options.getBoolean('durum');
-            await db.set(`level_disabled_${guildId}`, !durum);
+            // messageCreate.js checks: moduleSetting !== false → açık
+            // false = kapalı, true/null = açık
+            await db.set(`module_${guildId}_seviye-sistemi`, durum ? true : false);
             await interaction.reply({
                 embeds: [new EmbedBuilder()
                     .setDescription(`✅ Seviye sistemi ${durum ? 'açıldı' : 'kapatıldı'}.`)
@@ -142,7 +153,9 @@ module.exports = {
 
         else if (sub === 'ai-sistemi') {
             const durum = interaction.options.getBoolean('durum');
-            await db.set(`ai_disabled_${guildId}`, !durum);
+            // ai-service.js checks: aimod_{id} !== false → açık
+            // false = kapalı, true/null = açık
+            await db.set(`aimod_${guildId}`, durum ? true : false);
             await interaction.reply({
                 embeds: [new EmbedBuilder()
                     .setDescription(`✅ AI sohbet sistemi ${durum ? 'açıldı' : 'kapatıldı'}.`)

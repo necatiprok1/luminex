@@ -7,7 +7,7 @@ module.exports = {
         .setDescription("🎁 Günlük Luminex Coin ödülünü al!"),
 
     run: async (client, interaction) => {
-        const result = economy.claimDaily(interaction.guild.id, interaction.user.id);
+        const result = await economy.claimDaily(interaction.guild.id, interaction.user.id);
         const embed = economy.getDailyEmbed(interaction.user.id, result);
         await interaction.reply({ embeds: [embed] });
     }

@@ -15,7 +15,7 @@ module.exports = {
 
         try {
             const analytics = require('../utils/analytics-system');
-            analytics.trackMemberFlow(member.guild.id, 'leaves');
+            await analytics.trackMemberFlow(member.guild.id, 'leaves');
         } catch (e) {
             console.warn('[MEMBER-REMOVE] ⚠️  Failed to track member flow:', e.message);
         }

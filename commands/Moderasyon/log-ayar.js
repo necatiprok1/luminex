@@ -17,7 +17,7 @@ module.exports = {
         const db = require("../../utils/mongodb-helper");
 
         // Log kanalını ayarla
-        logSystem.setLogChannel(interaction.guild.id, channel.id);
+        await logSystem.setLogChannel(interaction.guild.id, channel.id);
 
         // Log modülünü aktifleştir
         await db.set(`module_${interaction.guild.id}_log-sistemi`, true);

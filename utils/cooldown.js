@@ -40,6 +40,9 @@ class CooldownManager {
             'yardım': 5,
             'istatistik': 10,
 
+            // AI
+            'ai': 5,
+
             // Genel varsayılan
             '_default': 3
         };

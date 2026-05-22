@@ -31,7 +31,7 @@ module.exports = {
     /**
      * Command execute function
      */
-    async execute(interaction) {
+    run: async (client, interaction) => {
         // Deferred reply (zaman alabilir)
         await interaction.deferReply();
 
@@ -86,7 +86,7 @@ module.exports = {
             }
 
             // Metni chunks'a böl (512 tokens ~2000 characters)
-            const chunks = this.splitIntoChunks(pdfData.text, 2000);
+            const chunks = module.exports.splitIntoChunks(pdfData.text, 2000);
             console.log(chalk.cyan(`[UPLOAD] ✂️ Split into ${chunks.length} chunks`));
 
             // Chunks'ları embed et ve kaydet

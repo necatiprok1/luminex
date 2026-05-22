@@ -35,7 +35,7 @@ module.exports = {
             });
         }
 
-        const result = economy.transfer(interaction.guild.id, interaction.user.id, targetUser.id, amount);
+        const result = await economy.transfer(interaction.guild.id, interaction.user.id, targetUser.id, amount);
 
         if (!result.success) {
             return interaction.reply({

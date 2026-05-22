@@ -2,7 +2,7 @@ const { ShardingManager, WebhookClient, EmbedBuilder } = require('discord.js');
 const chalk = require('chalk');
 require('dotenv').config();
 const { shard: totalShards } = require("./config.json");
-const token = process.env.TOKEN;
+const token = process.env.DISCORD_TOKEN || process.env.TOKEN;
 const url = process.env.WEBHOOK_URL;
 const kullanıcıAdı = "Luminex bot 🤖";
 let wb;

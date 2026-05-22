@@ -7,7 +7,7 @@ module.exports = {
         .setDescription("💼 Çalışarak Luminex Coin kazan!"),
 
     run: async (client, interaction) => {
-        const result = economy.work(interaction.guild.id, interaction.user.id);
+        const result = await economy.work(interaction.guild.id, interaction.user.id);
         const embed = economy.getWorkEmbed(interaction.user.id, result);
         await interaction.reply({ embeds: [embed] });
     }

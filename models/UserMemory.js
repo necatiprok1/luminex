@@ -60,4 +60,4 @@ userMemorySchema.methods.clearConversations = function() {
     return this.save();
 };
 
-module.exports = mongoose.model('UserMemory', userMemorySchema);
+module.exports = mongoose.models.UserMemory || mongoose.model('UserMemory', userMemorySchema);

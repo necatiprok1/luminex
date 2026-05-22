@@ -103,15 +103,18 @@ class WebSearchTool {
             };
         }
 
-        // Cache'i kontrol et
+        // Cache'i kontrol et (3 gün TTL)
         const cached = this.searchCache.get(query);
-        if (cached) {
+        if (cached && (Date.now() - cached.cachedAt < 3 * 24 * 60 * 60 * 1000)) {
             console.log(chalk.cyan('[WEBSEARCH] ⚡ Returning cached result'));
             return {
                 success: true,
-                results: cached,
+                results: cached.results,
                 cached: true
             };
+        } else if (cached) {
+            // TTL expired
+            this.searchCache.delete(query);
         }
 
         let lastError = null;
@@ -145,9 +148,11 @@ class WebSearchTool {
                     score: result.score || 1.0
                 }));
 
-                // Cache'e kaydet (3-day TTL)
-                this.searchCache.set(query, results);
-                setTimeout(() => this.searchCache.delete(query), 3 * 24 * 60 * 60 * 1000);
+                // Cache'e kaydet (timestamp-based, periyodik cleanup ile)
+                this.searchCache.set(query, {
+                    results,
+                    cachedAt: Date.now()
+                });
 
                 console.log(chalk.green(`[WEBSEARCH] ✅ Found ${results.length} results`));
 
